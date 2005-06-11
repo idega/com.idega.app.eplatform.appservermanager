@@ -37,7 +37,10 @@ public class AppservermanagerPlugin extends AbstractUIPlugin {
 
 		//get the installation dir of the app:
 		String sBaseDirUrl = System.getProperty("osgi.install.area");
-		File baseDir = new File(new URI(sBaseDirUrl));
+		//Specially replace the space:
+		String newUri = sBaseDirUrl.replaceAll(" ","%20");
+		URI baseDirUri = new URI(newUri);
+		File baseDir = new File(baseDirUri);
 		
 		manager = new AppserverManager(baseDir);
 		Thread starter = new Thread(manager);
