@@ -198,8 +198,18 @@ public class AppserverManager implements Runnable {
 			managerContainer = new Tomcat5xContainer();
 			setContainerSettings(managerContainer);
 		}
-		managerContainer.start();
-		log("started tomcat");
+		try{
+			managerContainer.start();
+			log("started tomcat");
+		}
+		catch(Exception e){
+			log("Error starting tomcat - you could have a problem by not having a JDK properly installed");
+			log(e.getMessage());
+			if(e.getCause()!=null){
+				log(e.getCause().getMessage());
+			}
+			e.printStackTrace();
+		}
 		setStarted(true);
 	}
 	
