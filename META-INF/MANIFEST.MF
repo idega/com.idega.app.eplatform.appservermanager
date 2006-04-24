@@ -5,8 +5,8 @@ Bundle-SymbolicName: com.idega.app.eplatform.appservermanager
 Bundle-Version: 1.0.0
 Bundle-ClassPath: appservermanager.jar,
  lib/xercesImpl-2.4.0.jar,
- lib/cargo-0.5.jar,
- lib/ant-1.6.4.jar
+ lib/ant-1.6.4.jar,
+ lib/cargo-core-uberjar-0.8.jar
 Bundle-Activator: com.idega.app.eplatform.appservermanager.AppservermanagerPlugin
 Bundle-Vendor: IDEGA
 Bundle-Localization: plugin

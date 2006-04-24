@@ -37,12 +37,17 @@ public class AppservermanagerPlugin extends AbstractUIPlugin {
 
 		//get the installation dir of the app:
 		String sBaseDirUrl = System.getProperty("osgi.install.area");
+		
+		//Temp hardcoding:
+		//sBaseDirUrl = "file:/idega/eplatform-app";
+		
 		//Specially replace the space:
 		String newUri = sBaseDirUrl.replaceAll(" ","%20");
 		URI baseDirUri = new URI(newUri);
 		File baseDir = new File(baseDirUri);
 		
 		manager = new AppserverManager(baseDir);
+		manager.setMainContextPath("/");
 		Thread starter = new Thread(manager);
 		starter.start();
 		
