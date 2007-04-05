@@ -47,7 +47,6 @@ public class AppservermanagerPlugin extends AbstractUIPlugin {
 		File baseDir = new File(baseDirUri);
 		
 		manager = new AppserverManager(baseDir);
-		manager.setMainContextPath("/");
 		Thread starter = new Thread(manager);
 		starter.start();
 		

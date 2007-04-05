@@ -11,54 +11,59 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+
+import org.codehaus.cargo.container.ContainerType;
 import org.codehaus.cargo.container.InstalledLocalContainer;
+import org.codehaus.cargo.container.configuration.ConfigurationType;
 import org.codehaus.cargo.container.configuration.LocalConfiguration;
 import org.codehaus.cargo.container.deployable.DeployableType;
 import org.codehaus.cargo.container.deployable.WAR;
-import org.codehaus.cargo.container.deployer.Deployer;
-import org.codehaus.cargo.container.deployer.DeployerType;
 import org.codehaus.cargo.container.installer.Installer;
 import org.codehaus.cargo.container.installer.ZipURLInstaller;
-import org.codehaus.cargo.container.tomcat.Tomcat5xInstalledLocalContainer;
-import org.codehaus.cargo.container.tomcat.TomcatExistingLocalConfiguration;
+import org.codehaus.cargo.generic.DefaultContainerFactory;
+import org.codehaus.cargo.generic.configuration.ConfigurationFactory;
+import org.codehaus.cargo.generic.configuration.DefaultConfigurationFactory;
 import org.codehaus.cargo.generic.deployable.DefaultDeployableFactory;
 import org.codehaus.cargo.generic.deployable.DeployableFactory;
-import org.codehaus.cargo.generic.deployer.DefaultDeployerFactory;
-import org.codehaus.cargo.generic.deployer.DeployerFactory;
 import org.codehaus.cargo.util.FileUtils;
+
 import com.idega.eplatform.util.FileDownloader;
 
 public class AppserverManager implements Runnable {
-
-	File baseDir;
-	File managerServerDir;
-	File logfile;
-	InstalledLocalContainer managerContainer;
-	int serverPort = 8080;
+	
+	private static final String DATABASES_DIR_NAME = "databases";
+	private static final String SEPERATOR = File.separator;
+	private File applicationInstallDir;
+	private File managerServerDir;
+	private String logfile;
+	private InstalledLocalContainer managerContainer;
+	private int serverPort = 8080;
 	boolean started = false;
 	private String status;
-	private String managerContainerId="default";
-	private String mainContextPath;
-	private String webappName="demo";
+	private String managerContainerId="tomcat5x";
+	private String webAppContext;
+	private String webappName="ROOT";
+	private String webAppFolderPath;
+	boolean usePlatform35 = true;
+	private String snapshotVersion = "eplatform-3.5-SNAPSHOT.war";
+	private boolean runInDebugMode = true;
+	@SuppressWarnings("deprecation")
+	private FileUtils fileUtil;
+
 	
+	@SuppressWarnings("deprecation")
 	public AppserverManager(File baseDir){
 		log(baseDir.toString());
-		this.baseDir=baseDir;
-		managerServerDir=new File(baseDir,"adminserver");
-		logfile = new File(managerServerDir,"out.log");
+		this.applicationInstallDir=baseDir;
+		this.managerServerDir= new File(baseDir,"appserver");
+		this.logfile = new File(managerServerDir,"out.log").toString();
+		this.fileUtil = new FileUtils();
 	}
 	
 	public void run() {
-		// TODO Auto-generated method stub
-		log("Starting Appserver");
-		//if(tomcatinstalled()){
-		//	start();
-		//}
-		//else{
-			//installtomcat();
+		log("Starting IdegaWeb ePlatform RCP");
 			start();
-		//}
-		log("Started Appserver on "+getMainAppURL());
+		log("Started IdegaWeb ePlatform RCP on : "+getMainAppURL());
 	}
 	 
 	private InstalledLocalContainer installtomcat() {
@@ -69,44 +74,28 @@ public class AppserverManager implements Runnable {
 		}
 		Installer installer;
 		try {
-			//installer = new ZipURLInstaller(new URL("http://www.caucho.com/download/resin-3.0.13.zip"),installDir);
-			//installer = new ZipURLInstaller(new URL("file:///Users/tryggvil/Downloads/jakarta-tomcat-5.0.28.zip"),installDir);
-			//installer = new ZipURLInstaller(new URL("http://heanet.dl.sourceforge.net/sourceforge/jetty/jetty-5.1.3-all.zip"),installDir);
 			URL tomcatUrl = getDownloadedTomcatFile().toURL();
-			installer = new ZipURLInstaller(tomcatUrl,installDir);
-			
-			//ZipEntry entry;
+			installer = new ZipURLInstaller(tomcatUrl,installDir.toString());
 			installer.install();
 			
-			File home = installer.getHome();
+			setWebAppFolderPath(installer.getHome());
+			ConfigurationFactory configurationFactory = new DefaultConfigurationFactory();
+			LocalConfiguration configuration =(LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.STANDALONE);
 			
-			LocalConfiguration configuration = new TomcatExistingLocalConfiguration(home);
-			//managerContainer = new Resin3xContainer();
-			managerContainer = new Tomcat5xInstalledLocalContainer(configuration);
+			managerContainer = (InstalledLocalContainer) new DefaultContainerFactory().createContainer(managerContainerId, ContainerType.INSTALLED, configuration);
+			
+			//managerContainer = new Tomcat5xInstalledLocalContainer(configuration);
 			//managerContainer = new Jetty4xEmbeddedContainer();
+			
 			setContainerSettings(managerContainer);
-			managerContainer.setHome(installer.getHome());
+			managerContainer.setHome(getWebAppFolderPath());
 			managerContainer.setTimeout(600000);
 			
-			//deployIWWebapp(managerContainer);
-			
-			
-			//Configuration configuration = managerContainer.getConfiguration();
-			//ConfigurationFactory factory = new DefaultConfigurationFactory();
-			//Configuration configuration = factory.createConfiguration(managerContainer, ConfigurationFactory.STANDALONE);
-			
-			//configuration.setProperty(ServletPropertySet.PORT,Integer.toString(serverPort));
-			//managerContainer.setConfiguration(configuration);
-		
 			return managerContainer;
 			
 		} catch (MalformedURLException e) {
-			//e.printStackTrace();
 			throw new RuntimeException(e);
 		}
-		//catch(NullPointerException npe){
-		//	npe.printStackTrace();
-		//}
 		
 	}
 
@@ -115,56 +104,91 @@ public class AppserverManager implements Runnable {
 		
 	}
 
+	@SuppressWarnings("deprecation")
 	protected void setContainerSettings(InstalledLocalContainer container){
 		container.setOutput(logfile);
 		
-		Map systemprops = new HashMap();
-		//systemprops.put("Xmx","128M");
+		Map<String, String> systemprops = new HashMap<String, String>();
+		systemprops.put("Xmx","256M");
 		systemprops.put("java.awt.headless","true");
-		String appserverBaseDir = getManagerServerDir().getAbsolutePath();
+		systemprops.put("file.encoding","UTF-8");
+		
+		if(runInDebugMode ){
+			systemprops.put("agent","");
+			systemprops.put("runjdwp:transport","dt_socket,server=y,suspend=n,address=10041");
+		}
+		
+		String databasePropertiesFileName = "db.properties.hsqldb";
+		try {
+			this.fileUtil.createDirectory(this.getApplicationInstallDir(), DATABASES_DIR_NAME);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		systemprops.put("idegaweb.db.properties",this.getApplicationInstallDir().getAbsolutePath()+SEPERATOR+"plugins"+SEPERATOR+"com.idega.app.eplatform_3.0.0"+SEPERATOR+databasePropertiesFileName);
 		//systemprops.put("user.dir",appserverBaseDir);
 		
 		container.setSystemProperties(systemprops);
-		
-		//deployIWWebapp(container);
 	}
 	
 	protected File getDownloadedTomcatFile(){
-		File appserver = new File(getDownloadDir(),"jakarta-tomcat-5.0.28.zip");
+		File appserver = getAppServerFile();
 		if(!appserver.exists()){
-			//download the file if it doesn't exist:
 			//download the file if it doesn't exist:
 			FileDownloader grabber;
 			try {
 				appserver.createNewFile();
-				grabber = new FileDownloader(new URL("http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip"),appserver);
+				//http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip
+				//http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip
+				//grabber = new FileDownloader(new URL("http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip"),appserver);
+				grabber = new FileDownloader(new URL(getAppServerDownloadURL()),appserver);
 				Thread thread = new Thread(grabber);
 				thread.start();
 				while(!grabber.isDone()){
 					log(grabber.getDownloadState());
 					Thread.sleep(3000);
 				}
+				//todo show percentage
 				log(grabber.getDownloadState());
 			}
 			catch (Exception e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
 		}
 		return appserver;
 	}
+
+	protected String getAppServerDownloadURL() {
+		if(usePlatform35){
+			return "http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip";
+		}
+		else{
+			return "http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip";
+		}
+	}
+
+	protected File getAppServerFile() {
+		if(usePlatform35){
+			return new File(getDownloadDir(),"apache-tomcat-5.5.23.zip");
+		}
+		else{
+			return new File(getDownloadDir(),"jakarta-tomcat-5.0.28.zip");
+		}
+	}
 	
 	
+	@SuppressWarnings("deprecation")
 	protected File getWarFile(){
 		File war = new File(getDownloadDir(),webappName+".war");
+		//download the file if it doesn't exist:
 		if(!war.exists()){
-			//download the file if it doesn't exist:
-			//download the file if it doesn't exist:
 			FileDownloader grabber;
 			try {
+				
 				war.createNewFile();
-				grabber = new FileDownloader(new URL("http://repository.idega.com/maven/iw-applications/wars/"+webappName+"-SNAPSHOT.war"),war);
+				grabber = new FileDownloader(new URL(getEPlatformDownloadURL()),war);
+				
 				Thread thread = new Thread(grabber);
 				thread.start();
 				while(!grabber.isDone()){
@@ -172,113 +196,84 @@ public class AppserverManager implements Runnable {
 					Thread.sleep(3000);
 				}
 				log(grabber.getDownloadState());
+				String defaultTomcatRootWebapp = getWebAppFolderPath()+SEPERATOR+"webapps"+SEPERATOR+"ROOT";
+				log("Deleting: "+defaultTomcatRootWebapp);
+				//DELETE the default tomcat ROOT webapp, maybe we should just remove the whole webapps from the default tomcat download
+				fileUtil.delete(new File(defaultTomcatRootWebapp));
+				
+				
 			}
 			catch (Exception e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
 		}
-		
-		String mainContextPath = getMainContextPath();
-		
-		if(mainContextPath!=null && mainContextPath.equals("/")){
-			File rootWar = new File(getDownloadDir(),"ROOT.war");
-			try {
-				if(!rootWar.exists()){
-					rootWar.createNewFile();
-					FileUtils utils = new FileUtils();
-					FileInputStream input = new FileInputStream(war);
-					FileOutputStream output = new FileOutputStream(rootWar);
-					utils.copy(input,output);
-					input.close();
-					output.close();
-				}
-				return rootWar;
-			}
-			catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 			
-		}
 		return war;
+	}
+
+	protected String getEPlatformDownloadURL() {
+		if(usePlatform35){
+			return "http://repository.idega.com/maven2/com/idega/webapp/platform/eplatform/3.5-SNAPSHOT/"+snapshotVersion;
+
+		}
+		else{
+			return "http://repository.idega.com/maven/iw-applications/wars/eplatform-3.1.60.war";
+		}
 	}
 	
 	protected File getDownloadDir(){
-		return baseDir;
+		return this.applicationInstallDir;
 	}
 	
 	
 	protected void deployIWWebapp(InstalledLocalContainer container){
-		
-		DeployableFactory factory = new DefaultDeployableFactory();//container.getCapability().;
+		DeployableFactory factory = new DefaultDeployableFactory();
 		WAR war = (WAR) factory.createDeployable(managerContainerId,getWarFile().getAbsolutePath(),DeployableType.WAR);//factory.createWAR(getWarFile().getAbsolutePath());
-		//WAR war = factory.createWAR("/Users/tryggvil/Downloads/content.war");
-		//war.setContext("");
 		
-		try {
-			log("deploying war from "+war.getFile().toURL());
-		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		String context = getWebAppContext();
+		if(context!=null){
+			war.setContext(context);
+		}
+		else{
+			context ="/";
 		}
 		
-		//DefaultConfigurationFactory cfactory = new DefaultConfigurationFactory();
-		//StandaloneLocalConfiguration configuration = (StandaloneLocalConfiguration) cfactory.createConfiguration(managerContainerId, ConfigurationType.STANDALONE);
-		//configuration.setProperty(ServletPropertySet.PORT,Integer.toString(serverPort));
-		//container.setConfiguration(configuration);
-		//configuration.addDeployable(war);
+		log("Deploying WAR file: "+this.webappName+ " to the context : "+context);
+	
 		
-		DeployerFactory deployerfactory = new DefaultDeployerFactory();
-		Deployer deployer = deployerfactory.createDeployer(container,DeployerType.LOCAL);
-		
-		String contextPath = getMainContextPath();
-		if(contextPath==null){
-			contextPath = "/"+war.getContext();
-			setMainContextPath(contextPath);
-		}
-		
-		//war.setContext(getMainContextPath());
-		war.setContext(contextPath);
-		deployer.deploy(war);
+		container.getConfiguration().addDeployable(war);
+		container.getConfiguration().configure(container);
 	}
 	
 	public void start() {
-		log("starting tomcat");
+		
 		File installDir = getManagerServerDir();
 		if(managerContainer==null){
-			//managerContainer = new Resin3xContainer();
-			LocalConfiguration conf=null;
+			//install tomcat if neededd otherwise load existing app
 			if(installDir.exists()){
-				//DefaultConfigurationFactory cfactory = new DefaultConfigurationFactory();
-				//conf = (ExistingLocalConfiguration) cfactory.createConfiguration(managerContainerId, ConfigurationType.EXISTING);
-				//conf = new TomcatExistingLocalConfiguration(installDir);
-				//managerContainer = new Tomcat5xInstalledLocalContainer(conf);
-				managerContainer = createExistingContainer(installDir);
+				log("Webserver found, configuring.");
+				managerContainer = createExistingContainer(installDir.toString());
 				setContainerSettings(managerContainer);
-				managerContainer.start();
 			}
 			else{
+				log("No webserver found, downloading Apache Tomcat");
 				managerContainer = installtomcat();
 				//managerServerDir.mkdir();
+				log("Webserver installed, configuring.");
 				setContainerSettings(managerContainer);
-				managerContainer.start();
-
 				storeContainerSettings(installDir,managerContainer);
-				/*try {
-					Thread.sleep(60*1000);
-				}
-				catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}*/
-				deployIWWebapp(managerContainer);
 			}
+			
+			//deploy if neccesery
+			log("Deploying ePlatform");
+			deployIWWebapp(managerContainer);
 		}
 		try{
-			//managerContainer.start();
-			log("started tomcat");
+//			then start
+			managerContainer.start();
+			setStarted(true);
+			log("Webserver started. Done");
 		}
 		catch(Exception e){
 			log("Error starting tomcat - you could have a problem by not having a JDK properly installed");
@@ -288,7 +283,7 @@ public class AppserverManager implements Runnable {
 			}
 			e.printStackTrace();
 		}
-		setStarted(true);
+		
 	}
 	
 	private void storeContainerSettings(File baseInstallDir,InstalledLocalContainer managerContainer2) {
@@ -296,11 +291,11 @@ public class AppserverManager implements Runnable {
 		
 		Properties prop = new Properties();
 		try {
-			File homeDir = managerContainer2.getHome();
-			String fullPath = homeDir.getPath();
+			
+			String fullPath = managerContainer2.getHome();
 			String baseInstallPath = baseInstallDir.getPath();
-			if(!baseInstallPath.endsWith(File.separator)){
-				baseInstallPath+=File.separator;
+			if(!baseInstallPath.endsWith(SEPERATOR)){
+				baseInstallPath+=SEPERATOR;
 			}
 			String relativePath = fullPath.substring(baseInstallPath.length(),fullPath.length());
 			
@@ -308,39 +303,48 @@ public class AppserverManager implements Runnable {
 			prop.store(new FileOutputStream(new File(baseInstallDir,"installation.properties")), null);
 		}
 		catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			//e.printStackTrace();
+			e.printStackTrace();
 		}
 		catch (IOException e) {
-			// TODO Auto-generated catch block
-			//e.printStackTrace();
+			e.printStackTrace();
 		}
 	}
 
-	private InstalledLocalContainer createExistingContainer(File installDir) {
+	private InstalledLocalContainer createExistingContainer(String installDir) {
 		
-		File homeDir = installDir;
+		String homeDir = installDir;
 		
 		Properties prop = new Properties();
 		try {
 			prop.load(new FileInputStream(new File(installDir,"installation.properties")));
 			String installationProp = prop.getProperty("tomcat0.home.dir");
+			log(installationProp);
 			if(installationProp!=null){
-				homeDir = new File(installDir,installationProp);
+				homeDir = installDir + SEPERATOR+installationProp;
+				setWebAppFolderPath(homeDir);
 			}
 		}
 		catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			//e.printStackTrace();
+			e.printStackTrace();
 		}
 		catch (IOException e) {
-			// TODO Auto-generated catch block
-			//e.printStackTrace();
+			e.printStackTrace();
 		}
 		
-		LocalConfiguration conf = new TomcatExistingLocalConfiguration(homeDir);
-		managerContainer = new Tomcat5xInstalledLocalContainer(conf);
+		//LocalConfiguration conf = new TomcatExistingLocalConfiguration(homeDir);
+		
+		
+		ConfigurationFactory configurationFactory = new DefaultConfigurationFactory();
+		LocalConfiguration configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.EXISTING,homeDir);
+//		configuration.setProperty(ServletPropertySet.PORT,Integer.toString(serverPort));
+		
+		managerContainer = (InstalledLocalContainer) new DefaultContainerFactory().createContainer(managerContainerId, ContainerType.INSTALLED, configuration);
+		//managerContainer = new Tomcat5xInstalledLocalContainer(conf);
+		
+		
 		managerContainer.setHome(homeDir);
+		managerContainer.setTimeout(600000);
+		
 		return managerContainer;
 	}
 
@@ -350,22 +354,6 @@ public class AppserverManager implements Runnable {
 			managerContainer.stop();
 		}
 	}
-
-	private boolean tomcatinstalled() {
-		/*
-		boolean isInstalled = getManagerServerDir().exists();
-		if(isInstalled){
-			log("tomcat is installed");
-		}
-		else{
-			log("tomcat is not installed");			
-		}
-		return isInstalled;
-		*/
-		return false;
-	}
-	
-	
 
 	public boolean isStarted() {
 		return started;
@@ -393,24 +381,13 @@ public class AppserverManager implements Runnable {
 	public int getServerPort(){
 		return this.serverPort;
 	}
-	
-	public String getMainContextPath(){
-		//todo: remove hardcoding:
-		//return "/content";
-		//return "/demo";
-		return mainContextPath;
-	}
-	
-	public void setMainContextPath(String contextPath){
-		mainContextPath=contextPath;
-	}
-	
+		
 	public String getHostName(){
-		return "localhost";
+		return "127.0.0.1";
 	}
 	
 	public String getMainAppURL(){
-		return "http://"+getHostName()+":"+getServerPort()+getMainContextPath();
+		return "http://"+getHostName()+":"+getServerPort()+((getWebAppContext()==null)?"/":getWebAppContext())+"/workspace/site/";
 	}
 
 	public void log(String logMessage){
@@ -424,5 +401,37 @@ public class AppserverManager implements Runnable {
 
 	public void setStatus(String status) {
 		this.status = status;
+	}
+
+	protected String getWebAppContext() {
+		return webAppContext;
+	}
+
+	protected void setWebAppContext(String webAppContext) {
+		this.webAppContext = webAppContext;
+	}
+
+	public boolean isRunningInDebugMode() {
+		return runInDebugMode;
+	}
+
+	public void setToRunInDebugMode(boolean runInDebugMode) {
+		this.runInDebugMode = runInDebugMode;
+	}
+
+	public File getApplicationInstallDir() {
+		return applicationInstallDir;
+	}
+
+	public void setApplicationInstallDir(File applicationDir) {
+		this.applicationInstallDir = applicationDir;
+	}
+
+	public String getWebAppFolderPath() {
+		return webAppFolderPath;
+	}
+
+	public void setWebAppFolderPath(String webAppFolderPath) {
+		this.webAppFolderPath = webAppFolderPath;
 	}
 }
