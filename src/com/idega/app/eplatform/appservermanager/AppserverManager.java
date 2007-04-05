@@ -387,7 +387,7 @@ public class AppserverManager implements Runnable {
 	}
 	
 	public String getMainAppURL(){
-		return "http://"+getHostName()+":"+getServerPort()+((getWebAppContext()==null)?"/":getWebAppContext())+"/workspace/site/";
+		return "http://"+getHostName()+":"+getServerPort()+((getWebAppContext()==null)?"/":getWebAppContext())+"workspace/site/";
 	}
 
 	public void log(String logMessage){
