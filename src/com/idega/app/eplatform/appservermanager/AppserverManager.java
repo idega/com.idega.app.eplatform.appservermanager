@@ -5,7 +5,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
@@ -31,6 +30,9 @@ import com.idega.eplatform.util.FileDownloader;
 
 public class AppserverManager implements Runnable {
 	
+	private static final String TOMCAT_5_0_DOWNLOAD_URL = "http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip";
+	private static final String TOMCAT_5_5_DOWNLOAD_URL = "http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip";
+	private static final String JBOSS_DOWNLOAD_URL = "http://heanet.dl.sourceforge.net/sourceforge/jboss/jboss-4.0.5.GA.zip";
 	private static final String DATABASES_DIR_NAME = "databases";
 	private static final String SEPERATOR = File.separator;
 	private File applicationInstallDir;
@@ -72,7 +74,7 @@ public class AppserverManager implements Runnable {
 		log("Started IdegaWeb ePlatform RCP on : "+getMainAppURL());
 	}
 	
-	private InstalledLocalContainer installApplicationServer() {
+	private boolean installApplicationServer() {
 		log("Installing application server");
 		File installDir = getManagerServerDir();
 		if(!installDir.exists()){
@@ -84,25 +86,14 @@ public class AppserverManager implements Runnable {
 			installer = new ZipURLInstaller(applicationServerUrl,installDir.toString());
 			installer.install();
 			
-			setWebAppFolderPath(installer.getHome());
-			ConfigurationFactory configurationFactory = new DefaultConfigurationFactory();
-			LocalConfiguration configuration =(LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.STANDALONE);
+			setWebAppFolderPath(installer.getHome());	
 			
-			managerContainer = (InstalledLocalContainer) new DefaultContainerFactory().createContainer(managerContainerId, ContainerType.INSTALLED, configuration);
-			
-			//managerContainer = new Tomcat5xInstalledLocalContainer(configuration);
-			//managerContainer = new Jetty4xEmbeddedContainer();
-			
-			setContainerSettings(managerContainer);
-			managerContainer.setHome(getWebAppFolderPath());
-			managerContainer.setTimeout(600000);
-			
-			return managerContainer;
-			
-		} catch (MalformedURLException e) {
-			throw new RuntimeException(e);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
 		}
 		
+		return true;
 	}
 
 	private File getManagerServerDir() {
@@ -165,28 +156,28 @@ public class AppserverManager implements Runnable {
 	protected String getAppServerDownloadURL() {
 		if(usePlatform35){
 			if(useJBoss){
-				return "http://heanet.dl.sourceforge.net/sourceforge/jboss/jboss-4.0.5.GA.zip";
+				return JBOSS_DOWNLOAD_URL;
 			}
 			else{
-				return "http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip";
+				return TOMCAT_5_5_DOWNLOAD_URL;
 			}
 		}
 		else{
-			return "http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip";
+			return TOMCAT_5_0_DOWNLOAD_URL;
 		}
 	}
 
 	protected File getAppServerFile() {
 		if(usePlatform35){
 			if(useJBoss){
-				return new File(getDownloadDir(),"jboss-4.0.5.GA.zip");
+				return new File(getDownloadDir(),JBOSS_DOWNLOAD_URL.substring(JBOSS_DOWNLOAD_URL.lastIndexOf("/")+1));
 			}
 			else{
-				return new File(getDownloadDir(),"apache-tomcat-5.5.23.zip");
+				return new File(getDownloadDir(),TOMCAT_5_5_DOWNLOAD_URL.substring(TOMCAT_5_5_DOWNLOAD_URL.lastIndexOf("/")+1));
 			}
 		}
 		else{
-			return new File(getDownloadDir(),"jakarta-tomcat-5.0.28.zip");
+			return new File(getDownloadDir(),TOMCAT_5_0_DOWNLOAD_URL.substring(TOMCAT_5_0_DOWNLOAD_URL.lastIndexOf("/")+1));
 		}
 	}
 	
@@ -272,12 +263,17 @@ public class AppserverManager implements Runnable {
 			}
 			else{
 				log("No application server found, downloading.");
-				managerContainer = installApplicationServer();
-				//managerServerDir.mkdir();
-				log("Application server installed, configuring.");
-				setContainerSettings(managerContainer);
-				storeContainerSettings(installDir,managerContainer);
+				if(installApplicationServer()){
+					log("Application server installed, configuring.");
+					managerContainer = createExistingContainer(null);
+				}
+				else{
+					log("Application server install FAILED, please quit and try again.");
+				}
 			}
+			
+			setContainerSettings(managerContainer);
+			storeContainerSettings(installDir,managerContainer);
 			
 			//deploy if neccesery
 			log("Deploying ePlatform");
@@ -325,24 +321,25 @@ public class AppserverManager implements Runnable {
 	}
 
 	private InstalledLocalContainer createExistingContainer(String installDir) {
+		String homeDir = getWebAppFolderPath();
 		
-		String homeDir = installDir;
-		
-		Properties prop = new Properties();
-		try {
-			prop.load(new FileInputStream(new File(installDir,"installation.properties")));
-			String installationProp = prop.getProperty("tomcat0.home.dir");
-			log(installationProp);
-			if(installationProp!=null){
-				homeDir = installDir + SEPERATOR+installationProp;
-				setWebAppFolderPath(homeDir);
+		if(homeDir==null){
+			Properties prop = new Properties();
+			try {
+				prop.load(new FileInputStream(new File(installDir,"installation.properties")));
+				String installationProp = prop.getProperty("tomcat0.home.dir");
+				log(installationProp);
+				if(installationProp!=null){
+					homeDir = installDir + SEPERATOR+installationProp;
+					setWebAppFolderPath(homeDir);
+				}
 			}
-		}
-		catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
-		catch (IOException e) {
-			e.printStackTrace();
+			catch (FileNotFoundException e) {
+				e.printStackTrace();
+			}
+			catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 		
 		//LocalConfiguration conf = new TomcatExistingLocalConfiguration(homeDir);
