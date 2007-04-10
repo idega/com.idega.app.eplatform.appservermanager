@@ -266,15 +266,15 @@ public class AppserverManager implements Runnable {
 		if(managerContainer==null){
 			//install tomcat if neededd otherwise load existing app
 			if(installDir.exists()){
-				log("Webserver found, configuring.");
+				log("Application server found, configuring.");
 				managerContainer = createExistingContainer(installDir.toString());
 				setContainerSettings(managerContainer);
 			}
 			else{
-				log("No webserver found, downloading Apache Tomcat");
+				log("No application server found, downloading.");
 				managerContainer = installApplicationServer();
 				//managerServerDir.mkdir();
-				log("Webserver installed, configuring.");
+				log("Application server installed, configuring.");
 				setContainerSettings(managerContainer);
 				storeContainerSettings(installDir,managerContainer);
 			}
@@ -287,10 +287,10 @@ public class AppserverManager implements Runnable {
 //			then start
 			managerContainer.start();
 			setStarted(true);
-			log("Webserver started. Done");
+			log("Application server started. Done");
 		}
 		catch(Exception e){
-			log("Error starting tomcat - you could have a problem by not having a JDK properly installed");
+			log("Error starting application server - you could have a problem by not having a JDK properly installed");
 			log(e.getMessage());
 			if(e.getCause()!=null){
 				log(e.getCause().getMessage());
