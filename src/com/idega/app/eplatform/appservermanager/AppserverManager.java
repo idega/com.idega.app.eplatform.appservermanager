@@ -40,10 +40,16 @@ public class AppserverManager implements Runnable {
 	private int serverPort = 8080;
 	boolean started = false;
 	private String status;
+	
+	//private String managerContainerId="jboss4x";
 	private String managerContainerId="tomcat5x";
+	
 	private String webAppContext;
 	private String webappName="ROOT";
 	private String webAppFolderPath;
+	
+	private boolean useJBoss = false;
+	
 	boolean usePlatform35 = true;
 	private String snapshotVersion = "eplatform-3.5-SNAPSHOT.war";
 	private boolean runInDebugMode = true;
@@ -65,17 +71,17 @@ public class AppserverManager implements Runnable {
 			start();
 		log("Started IdegaWeb ePlatform RCP on : "+getMainAppURL());
 	}
-	 
-	private InstalledLocalContainer installtomcat() {
-		log("installing tomcat");
+	
+	private InstalledLocalContainer installApplicationServer() {
+		log("Installing application server");
 		File installDir = getManagerServerDir();
 		if(!installDir.exists()){
 			installDir.mkdir();
 		}
 		Installer installer;
 		try {
-			URL tomcatUrl = getDownloadedTomcatFile().toURL();
-			installer = new ZipURLInstaller(tomcatUrl,installDir.toString());
+			URL applicationServerUrl = getDownloadedApplicationServerFile().toURL();
+			installer = new ZipURLInstaller(applicationServerUrl,installDir.toString());
 			installer.install();
 			
 			setWebAppFolderPath(installer.getHome());
@@ -131,16 +137,13 @@ public class AppserverManager implements Runnable {
 		container.setSystemProperties(systemprops);
 	}
 	
-	protected File getDownloadedTomcatFile(){
+	protected File getDownloadedApplicationServerFile(){
 		File appserver = getAppServerFile();
 		if(!appserver.exists()){
 			//download the file if it doesn't exist:
 			FileDownloader grabber;
 			try {
 				appserver.createNewFile();
-				//http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip
-				//http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip
-				//grabber = new FileDownloader(new URL("http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip"),appserver);
 				grabber = new FileDownloader(new URL(getAppServerDownloadURL()),appserver);
 				Thread thread = new Thread(grabber);
 				thread.start();
@@ -161,7 +164,12 @@ public class AppserverManager implements Runnable {
 
 	protected String getAppServerDownloadURL() {
 		if(usePlatform35){
-			return "http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip";
+			if(useJBoss){
+				return "http://heanet.dl.sourceforge.net/sourceforge/jboss/jboss-4.0.5.GA.zip";
+			}
+			else{
+				return "http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip";
+			}
 		}
 		else{
 			return "http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip";
@@ -170,7 +178,12 @@ public class AppserverManager implements Runnable {
 
 	protected File getAppServerFile() {
 		if(usePlatform35){
-			return new File(getDownloadDir(),"apache-tomcat-5.5.23.zip");
+			if(useJBoss){
+				return new File(getDownloadDir(),"jboss-4.0.5.GA.zip");
+			}
+			else{
+				return new File(getDownloadDir(),"apache-tomcat-5.5.23.zip");
+			}
 		}
 		else{
 			return new File(getDownloadDir(),"jakarta-tomcat-5.0.28.zip");
@@ -196,6 +209,7 @@ public class AppserverManager implements Runnable {
 					Thread.sleep(3000);
 				}
 				log(grabber.getDownloadState());
+				
 				String defaultTomcatRootWebapp = getWebAppFolderPath()+SEPERATOR+"webapps"+SEPERATOR+"ROOT";
 				log("Deleting: "+defaultTomcatRootWebapp);
 				//DELETE the default tomcat ROOT webapp, maybe we should just remove the whole webapps from the default tomcat download
@@ -258,7 +272,7 @@ public class AppserverManager implements Runnable {
 			}
 			else{
 				log("No webserver found, downloading Apache Tomcat");
-				managerContainer = installtomcat();
+				managerContainer = installApplicationServer();
 				//managerServerDir.mkdir();
 				log("Webserver installed, configuring.");
 				setContainerSettings(managerContainer);
