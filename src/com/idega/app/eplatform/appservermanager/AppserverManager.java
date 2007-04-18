@@ -52,9 +52,9 @@ public class AppserverManager implements Runnable {
 	
 	private boolean useJBoss = false;
 	
-	boolean usePlatform35 = true;
-	private String snapshotVersion = "eplatform-3.5-SNAPSHOT.war";
-	private boolean runInDebugMode = true;
+	boolean usePlatform4 = true;
+	private String snapshotVersion = "eplatform-4.0-SNAPSHOT.war";
+	private boolean runInDebugMode = false;
 	@SuppressWarnings("deprecation")
 	private FileUtils fileUtil;
 
@@ -111,6 +111,7 @@ public class AppserverManager implements Runnable {
 		systemprops.put("file.encoding","UTF-8");
 		
 		if(runInDebugMode ){
+			//TODO get this to work
 			systemprops.put("agent","");
 			systemprops.put("runjdwp:transport","dt_socket,server=y,suspend=n,address=10041");
 		}
@@ -154,7 +155,7 @@ public class AppserverManager implements Runnable {
 	}
 
 	protected String getAppServerDownloadURL() {
-		if(usePlatform35){
+		if(usePlatform4){
 			if(useJBoss){
 				return JBOSS_DOWNLOAD_URL;
 			}
@@ -168,7 +169,7 @@ public class AppserverManager implements Runnable {
 	}
 
 	protected File getAppServerFile() {
-		if(usePlatform35){
+		if(usePlatform4){
 			if(useJBoss){
 				return new File(getDownloadDir(),JBOSS_DOWNLOAD_URL.substring(JBOSS_DOWNLOAD_URL.lastIndexOf("/")+1));
 			}
@@ -218,8 +219,8 @@ public class AppserverManager implements Runnable {
 	}
 
 	protected String getEPlatformDownloadURL() {
-		if(usePlatform35){
-			return "http://repository.idega.com/maven2/com/idega/webapp/platform/eplatform/3.5-SNAPSHOT/"+snapshotVersion;
+		if(usePlatform4){
+			return "http://repository.idega.com/maven2/com/idega/webapp/platform/eplatform/4.0-SNAPSHOT/"+snapshotVersion;
 
 		}
 		else{
