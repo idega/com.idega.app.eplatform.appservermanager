@@ -32,7 +32,7 @@ public class AppserverManager implements Runnable {
 	
 	private static final String TOMCAT_5_0_DOWNLOAD_URL = "http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip";
 	private static final String TOMCAT_5_5_DOWNLOAD_URL = "http://www.apache.org/dist/tomcat/tomcat-5/v5.5.23/bin/apache-tomcat-5.5.23.zip";
-	private static final String TOMCAT_6_0_DOWNLOAD_URL = "http://www.apache.org/dist/tomcat/tomcat-6/v6.0.10/bin/apache-tomcat-6.0.10.zip";
+	private static final String TOMCAT_6_0_DOWNLOAD_URL = "http://www.apache.org/dist/tomcat/tomcat-6/v6.0.14/bin/apache-tomcat-6.0.14.zip";
 	private static final String JBOSS_DOWNLOAD_URL = "http://heanet.dl.sourceforge.net/sourceforge/jboss/jboss-4.0.5.GA.zip";
 	private static final String DATABASES_DIR_NAME = "databases";
 	private static final String SEPERATOR = File.separator;
