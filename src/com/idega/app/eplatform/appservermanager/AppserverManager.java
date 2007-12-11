@@ -54,7 +54,7 @@ public class AppserverManager implements Runnable {
 	private boolean useJBoss = false;
 	
 	boolean usePlatform4 = true;
-	private String snapshotVersion = "eplatform-4.0-SNAPSHOT.war";
+	private String snapshotVersion = "felixclub-4.0-SNAPSHOT.war";
 	private boolean runInDebugMode = false;
 	@SuppressWarnings("deprecation")
 	private FileUtils fileUtil;
@@ -223,7 +223,7 @@ public class AppserverManager implements Runnable {
 
 	protected String getEPlatformDownloadURL() {
 		if(usePlatform4){
-			return "http://repository.idega.com/maven2/com/idega/webapp/platform/eplatform/4.0-SNAPSHOT/"+snapshotVersion;
+			return "http://repository.idega.com/maven2/com/idega/webapp/custom/felixclub/4.0-SNAPSHOT/"+snapshotVersion;
 
 		}
 		else{
