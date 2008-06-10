@@ -19,6 +19,7 @@ import org.codehaus.cargo.container.deployable.DeployableType;
 import org.codehaus.cargo.container.deployable.WAR;
 import org.codehaus.cargo.container.installer.Installer;
 import org.codehaus.cargo.container.installer.ZipURLInstaller;
+import org.codehaus.cargo.container.property.DatasourcePropertySet;
 import org.codehaus.cargo.generic.DefaultContainerFactory;
 import org.codehaus.cargo.generic.configuration.ConfigurationFactory;
 import org.codehaus.cargo.generic.configuration.DefaultConfigurationFactory;
@@ -27,6 +28,8 @@ import org.codehaus.cargo.generic.deployable.DeployableFactory;
 import org.codehaus.cargo.util.FileUtils;
 
 import com.idega.eplatform.util.FileDownloader;
+import com.idega.manager.business.RepositoryBrowserM2;
+import com.idega.manager.data.RepositoryLogin;
 
 public class AppserverManager implements Runnable {
 	
@@ -227,7 +230,15 @@ public class AppserverManager implements Runnable {
 
 	protected String getEPlatformDownloadURL() {
 		if(usePlatform4){
-			return "http://repository.idega.com/maven2/com/idega/webapp/custom/felixclub/"+currentVersion+"/"+currentVersionAndName;
+			RepositoryLogin login = RepositoryLogin.getInstanceWithoutAuthentication("http://repository.idega.com/maven2");
+			RepositoryBrowserM2 browser = new RepositoryBrowserM2(login);
+			
+			String groupId = "com.idega.webapp.custom";
+			String artifactId = "lucid";
+			
+			String url = browser.getArtifactUrlForMostRecent(groupId, artifactId);
+			return url;
+			//return "http://repository.idega.com/maven2/com/idega/webapp/custom/felixclub/"+currentVersion+"/"+currentVersionAndName;
 		}
 		else{
 			return "http://repository.idega.com/maven/iw-applications/wars/eplatform-3.1.60.war";
@@ -356,13 +367,27 @@ public class AppserverManager implements Runnable {
 		LocalConfiguration configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.EXISTING,homeDir);
 //		configuration.setProperty(ServletPropertySet.PORT,Integer.toString(serverPort));
 		
+		String datasource="cargo.datasource.url=jdbc:hsqldb:mem:idega|" +
+				"cargo.datasource.driver=org.hsqldb.jdbcDriver|" +
+				"cargo.datasource.username=sa|" +
+				"cargo.datasource.password=|" +
+				"cargo.datasource.type=javax.sql.DataSource|" +
+				"cargo.datasource.jndi=jdbc/DefaultDS";
+		configuration.setProperty(DatasourcePropertySet.DATASOURCE, datasource);
+		
+		/*configuration.setProperty("cargo.datasource.url", "jdbc:hsqldb:mem:idegaweb");
+		configuration.setProperty("cargo.datasource.driver", "org.hsqldb.jdbcDriver");
+		configuration.setProperty("cargo.datasource.username", "sa");
+		configuration.setProperty("cargo.datasource.password", "");
+		configuration.setProperty("cargo.datasource.type", "javax.sql.DataSource");
+		configuration.setProperty("cargo.datasource.jndi", "jdbc/DefaultDS");*/
+		
 		managerContainer = (InstalledLocalContainer) new DefaultContainerFactory().createContainer(managerContainerId, ContainerType.INSTALLED, configuration);
 		//managerContainer = new Tomcat5xInstalledLocalContainer(conf);
 		
 		
 		managerContainer.setHome(homeDir);
 		managerContainer.setTimeout(600000);
-		
 		return managerContainer;
 	}
 
