@@ -21,6 +21,7 @@ import org.codehaus.cargo.container.deployable.WAR;
 import org.codehaus.cargo.container.installer.Installer;
 import org.codehaus.cargo.container.installer.ZipURLInstaller;
 import org.codehaus.cargo.container.property.DatasourcePropertySet;
+import org.codehaus.cargo.container.property.ServletPropertySet;
 import org.codehaus.cargo.generic.DefaultContainerFactory;
 import org.codehaus.cargo.generic.configuration.ConfigurationFactory;
 import org.codehaus.cargo.generic.configuration.DefaultConfigurationFactory;
@@ -28,11 +29,9 @@ import org.codehaus.cargo.generic.deployable.DefaultDeployableFactory;
 import org.codehaus.cargo.generic.deployable.DeployableFactory;
 import org.codehaus.cargo.util.FileUtils;
 
-import sun.security.action.GetBooleanAction;
-
 import com.idega.eplatform.util.FileDownloader;
-import com.idega.manager.maven2.RepositoryBrowserM2;
 import com.idega.manager.maven1.data.RepositoryLogin;
+import com.idega.manager.maven2.RepositoryBrowserM2;
 
 public class AppserverManager implements Runnable {
 	
@@ -47,7 +46,8 @@ public class AppserverManager implements Runnable {
 	private File databasesDir;
 	private String logfile;
 	private InstalledLocalContainer managerContainer;
-	private int serverPort = 8080;
+	private int serverHttpPort = 8080;
+	private String appserverId="tomcat0";
 	boolean started = false;
 	private String status;
 	
@@ -56,7 +56,8 @@ public class AppserverManager implements Runnable {
 	
 	private String webAppContext;
 	private String webappName="ROOT";
-	private String webAppFolderPath;
+	private String appserverHomePath;
+	private String containerHomePath;
 	
 	private boolean useJBoss = false;
 	
@@ -87,8 +88,95 @@ public class AppserverManager implements Runnable {
 			start();
 		log("Started IdegaWeb ePlatform RCP on : "+getMainAppURL());
 	}
+	public void start() {
+		
+		File installDir = getManagerServerDir();
+		boolean alreadyInstalled=false;
+		//if(homeDir==null){
+		if(installDir.exists()){
+			alreadyInstalled = loadSettings(installDir, alreadyInstalled);
+		}
+		if(managerContainer==null){
+			//install tomcat if neededd otherwise load existing app
+			if(alreadyInstalled){
+				log("Application server found, configuring.");
+				managerContainer = createContainer(installDir,true);
+			}
+			else{
+				log("No application server found, downloading.");
+				if(downloadAndInstallApplicationServer()){
+					log("Application server installed, configuring.");
+					managerContainer = createContainer(installDir,false);
+				}
+				else{
+					log("Application server install FAILED, please quit and try again.");
+				}
+			}
+			
+			
+			setContainerSettings(managerContainer);
+
+			if(!alreadyInstalled){
+				deployIWWebapp(managerContainer);
+			}
+		}
+		try{
+//			then start
+			String[] extraClasspath = getExtraClasspath();
+			managerContainer.setExtraClasspath(extraClasspath);
+			
+			managerContainer.start();
+			setStarted(true);
+			log("Application server started. Done");
+		}
+		catch(Exception e){
+			log("Error starting application server - you could have a problem by not having a JDK properly installed");
+			log(e.getMessage());
+			if(e.getCause()!=null){
+				log(e.getCause().getMessage());
+			}
+			e.printStackTrace();
+		}
+		
+	}
+
+	private boolean loadSettings(File installDir, boolean alreadyInstalled) {
+		Properties prop = new Properties();
+		try {
+			prop.load(new FileInputStream(new File(installDir,"installation.properties")));
+			String appServerHome = prop.getProperty(getAppserverId()+".home.dir");
+			log("AppserverHome:"+appServerHome);
+			if(appServerHome!=null){
+				String homeDir = installDir + SEPERATOR+appServerHome;
+				setAppserverHomePath(homeDir);
+				alreadyInstalled=true;
+			}
+			String containerHome = prop.getProperty("container.home.dir");
+			log("ContainerHome:"+containerHome);
+			if(containerHome!=null){
+				String containerHomeDir = installDir + SEPERATOR+containerHome;
+				//setAppserverHomePath(containerHomeDir);
+				setContainerHomePath(containerHomeDir);
+			}
+			String serverHttpPort = prop.getProperty(getAppserverId()+".http.port");
+			if(serverHttpPort!=null){
+				int port = Integer.parseInt(serverHttpPort);
+				setServerHttpPort(port);
+			}
+		}
+		catch (FileNotFoundException e) {
+			//e.printStackTrace();
+			//if(!installDir.exists()){
+			//	installDir.mkdir();
+			//}
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+		return alreadyInstalled;
+	}
 	
-	private boolean installApplicationServer() {
+	private boolean downloadAndInstallApplicationServer() {
 		log("Installing application server");
 		File installDir = getManagerServerDir();
 		if(!installDir.exists()){
@@ -100,7 +188,7 @@ public class AppserverManager implements Runnable {
 			installer = new ZipURLInstaller(applicationServerUrl,installDir.toString());
 			installer.install();
 			
-			setWebAppFolderPath(installer.getHome());	
+			setContainerHomePath(installer.getHome());	
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -217,7 +305,7 @@ public class AppserverManager implements Runnable {
 				}
 				log(grabber.getDownloadState());
 				
-				String defaultTomcatRootWebapp = getWebAppFolderPath()+SEPERATOR+"webapps"+SEPERATOR+"ROOT";
+				String defaultTomcatRootWebapp = getAppserverHomePath()+SEPERATOR+"webapps"+SEPERATOR+"ROOT";
 				log("Deleting: "+defaultTomcatRootWebapp);
 				//DELETE the default tomcat ROOT webapp, maybe we should just remove the whole webapps from the default tomcat download
 				fileUtil.delete(new File(defaultTomcatRootWebapp));
@@ -277,54 +365,6 @@ public class AppserverManager implements Runnable {
 		container.getConfiguration().configure(container);
 	}
 	
-	public void start() {
-		
-		File installDir = getManagerServerDir();
-		if(managerContainer==null){
-			//install tomcat if neededd otherwise load existing app
-			if(installDir.exists()){
-				log("Application server found, configuring.");
-				managerContainer = createContainer(installDir,true);
-				setContainerSettings(managerContainer);
-			}
-			else{
-				log("No application server found, downloading.");
-				if(installApplicationServer()){
-					log("Application server installed, configuring.");
-					managerContainer = createContainer(installDir,false);
-				}
-				else{
-					log("Application server install FAILED, please quit and try again.");
-				}
-			}
-			
-			setContainerSettings(managerContainer);
-			storeContainerSettings(installDir,managerContainer);
-			
-			//deploy if neccesery
-			log("Deploying ePlatform");
-			deployIWWebapp(managerContainer);
-		}
-		try{
-//			then start
-			String[] extraClasspath = getExtraClasspath();
-			managerContainer.setExtraClasspath(extraClasspath);
-			
-			managerContainer.start();
-			setStarted(true);
-			log("Application server started. Done");
-		}
-		catch(Exception e){
-			log("Error starting application server - you could have a problem by not having a JDK properly installed");
-			log(e.getMessage());
-			if(e.getCause()!=null){
-				log(e.getCause().getMessage());
-			}
-			e.printStackTrace();
-		}
-		
-	}
-	
 	private String[] getExtraClasspath() {
 		
 		String jdbcDriverPath = getJdbcDriverPath();
@@ -338,21 +378,31 @@ public class AppserverManager implements Runnable {
 		return hsqlPath;
 	}
 
-	private void storeContainerSettings(File baseInstallDir,InstalledLocalContainer managerContainer2) {
+	private void storeContainerSettings(File baseInstallDir, String fullHomePath) {
 
-		
 		Properties prop = new Properties();
 		try {
 			
-			String fullPath = managerContainer2.getHome();
+			//String fullHomePath = managerContainer2.getHome();
 			String baseInstallPath = baseInstallDir.getPath();
 			if(!baseInstallPath.endsWith(SEPERATOR)){
 				baseInstallPath+=SEPERATOR;
 			}
-			if(fullPath!=null){
-				String relativePath = fullPath.substring(baseInstallPath.length(),fullPath.length());
-				prop.setProperty("tomcat0.home.dir",relativePath);
+			if(fullHomePath!=null){
+				String relativePath = fullHomePath.substring(baseInstallPath.length(),fullHomePath.length());
+				prop.setProperty(getAppserverId()+".home.dir",relativePath);
 			}
+			String containerFullPath = getContainerHomePath();
+			if(containerFullPath!=null){
+				String containerRelativePath = containerFullPath.substring(baseInstallPath.length(),containerFullPath.length());
+				prop.setProperty("container.home.dir",containerRelativePath);
+			}
+			
+			String serverHttpPort = new Integer(getServerHttpPort()).toString();
+			if(serverHttpPort!=null){
+				prop.setProperty(getAppserverId()+".http.port",serverHttpPort);
+			}
+			
 			prop.store(new FileOutputStream(new File(baseInstallDir,"installation.properties")), null);
 		}
 		catch (FileNotFoundException e) {
@@ -363,82 +413,73 @@ public class AppserverManager implements Runnable {
 		}
 	}
 
-	private InstalledLocalContainer createContainer(File installDir,boolean existing) {
-		//String homeDir = getWebAppFolderPath();
-		File newHomeDir = new File(getManagerServerDir(),"tomcat0");
-		boolean homeExisted=true;
-		if(!newHomeDir.exists()){
-			newHomeDir.mkdir();
-			homeExisted=false;
-		}
-		String homeDir = newHomeDir.toString();
-			
-		
-		//if(homeDir==null){
-		if(!homeExisted){
-			Properties prop = new Properties();
-			try {
-				prop.load(new FileInputStream(new File(installDir,"installation.properties")));
-				String installationProp = prop.getProperty("tomcat0.home.dir");
-				log(installationProp);
-				if(installationProp!=null){
-					homeDir = installDir + SEPERATOR+installationProp;
-					setWebAppFolderPath(homeDir);
-				}
-			}
-			catch (FileNotFoundException e) {
-				//e.printStackTrace();
-				if(!installDir.exists()){
-					installDir.mkdir();
-				}
-			}
-			catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
+	private InstalledLocalContainer createContainer(File installDir,boolean alreadyInstalled) {
 		
 		//LocalConfiguration conf = new TomcatExistingLocalConfiguration(homeDir);
 		
 		
 		ConfigurationFactory configurationFactory = new DefaultConfigurationFactory();
 		LocalConfiguration configuration=null;
-		if(existing){
+		if(alreadyInstalled){
+			String homeDir = getAppserverHomePath();
 			configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.EXISTING,homeDir);
+			
+			String strServerPort = Integer.toString(getServerHttpPort());
+			configuration.setProperty(ServletPropertySet.PORT,strServerPort);
 		}
 		else{
-			configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.STANDALONE,homeDir);
+			
+			File newCreatedHomeDir = new File(getManagerServerDir(),getAppserverId());
+			//File newHomeDir = new File(getWebAppFolderPath());
+			if(!newCreatedHomeDir.exists()){
+				newCreatedHomeDir.mkdir();
+			}
+			String newCreatedHomeDirString = newCreatedHomeDir.getPath();
+			
+			configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.STANDALONE,newCreatedHomeDirString);
 			//configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.STANDALONE);
 			StandaloneLocalConfiguration standalone = (StandaloneLocalConfiguration) configuration;
+			
+			String dbName = getAppserverId()+"DB";
+			String databasePath = getDatabasesDir().getPath()+File.separator+dbName;
+			String dbUrl = "jdbc:hsqldb:file:"+databasePath;
+			dbUrl = dbUrl.replace("\\", "\\\\");
+			
+			String datasource="cargo.datasource.url="+dbUrl+"|" +
+					"cargo.datasource.driver=org.hsqldb.jdbcDriver|" +
+					"cargo.datasource.username=sa|" +
+					"cargo.datasource.password=|" +
+					"cargo.datasource.type=javax.sql.DataSource|" +
+					"cargo.datasource.jndi=jdbc/DefaultDS";
+			configuration.setProperty(DatasourcePropertySet.DATASOURCE, datasource);
+			
+			/*configuration.setProperty("cargo.datasource.url", "jdbc:hsqldb:mem:idegaweb");
+			configuration.setProperty("cargo.datasource.driver", "org.hsqldb.jdbcDriver");
+			configuration.setProperty("cargo.datasource.username", "sa");
+			configuration.setProperty("cargo.datasource.password", "");
+			configuration.setProperty("cargo.datasource.type", "javax.sql.DataSource");
+			configuration.setProperty("cargo.datasource.jndi", "jdbc/DefaultDS");*/
+			
+			int defaultPort = 9000;
+			setServerHttpPort(defaultPort);
+			configuration.setProperty(ServletPropertySet.PORT,Integer.toString(defaultPort));
+			
+			storeContainerSettings(installDir,newCreatedHomeDirString);
+
+			//deploy if neccesery
+			log("Deploying ePlatform Webapp");
 		}
-		//		configuration.setProperty(ServletPropertySet.PORT,Integer.toString(serverPort));
-		
-		String dbName = "idegaweb0";
-		String databasePath = getDatabasesDir().getPath()+File.separator+dbName;
-		String dbUrl = "jdbc:hsqldb:file:"+databasePath;
-		
-		String datasource="cargo.datasource.url="+dbUrl+"|" +
-				"cargo.datasource.driver=org.hsqldb.jdbcDriver|" +
-				"cargo.datasource.username=sa|" +
-				"cargo.datasource.password=|" +
-				"cargo.datasource.type=javax.sql.DataSource|" +
-				"cargo.datasource.jndi=jdbc/DefaultDS";
-		configuration.setProperty(DatasourcePropertySet.DATASOURCE, datasource);
-		
-		/*configuration.setProperty("cargo.datasource.url", "jdbc:hsqldb:mem:idegaweb");
-		configuration.setProperty("cargo.datasource.driver", "org.hsqldb.jdbcDriver");
-		configuration.setProperty("cargo.datasource.username", "sa");
-		configuration.setProperty("cargo.datasource.password", "");
-		configuration.setProperty("cargo.datasource.type", "javax.sql.DataSource");
-		configuration.setProperty("cargo.datasource.jndi", "jdbc/DefaultDS");*/
 		
 		managerContainer = (InstalledLocalContainer) new DefaultContainerFactory().createContainer(managerContainerId, ContainerType.INSTALLED, configuration);
 		//managerContainer = new Tomcat5xInstalledLocalContainer(conf);
 		
 		
 		//managerContainer.setHome(homeDir);
-		managerContainer.setHome(getWebAppFolderPath());
+		String containerHomeDir = getContainerHomePath();
+		managerContainer.setHome(containerHomeDir);
 		//managerContainer.setHome(installDir.toString());
 		managerContainer.setTimeout(600000);
+		
 		return managerContainer;
 	}
 
@@ -487,8 +528,12 @@ public class AppserverManager implements Runnable {
 		
 	}
 
-	public int getServerPort(){
-		return this.serverPort;
+	public int getServerHttpPort(){
+		return this.serverHttpPort;
+	}
+	
+	public void setServerHttpPort(int serverPort){
+		this.serverHttpPort=serverPort;
 	}
 		
 	public String getHostName(){
@@ -497,7 +542,7 @@ public class AppserverManager implements Runnable {
 	
 	public String getMainAppURL(){
 		String initialAppPath = "workspace/";
-		return "http://"+getHostName()+":"+getServerPort()+((getWebAppContext()==null)?"/":getWebAppContext())+initialAppPath;
+		return "http://"+getHostName()+":"+getServerHttpPort()+((getWebAppContext()==null)?"/":getWebAppContext())+initialAppPath;
 	}
 
 	public void log(String logMessage){
@@ -537,12 +582,12 @@ public class AppserverManager implements Runnable {
 		this.applicationInstallDir = applicationDir;
 	}
 
-	public String getWebAppFolderPath() {
-		return webAppFolderPath;
+	public String getAppserverHomePath() {
+		return appserverHomePath;
 	}
 
-	public void setWebAppFolderPath(String webAppFolderPath) {
-		this.webAppFolderPath = webAppFolderPath;
+	public void setAppserverHomePath(String fullPath) {
+		this.appserverHomePath = fullPath;
 	}
 
 	public File getDatabasesDir() {
@@ -552,4 +597,22 @@ public class AppserverManager implements Runnable {
 	public void setDatabasesDir(File databasesDir) {
 		this.databasesDir = databasesDir;
 	}
+
+	private void setAppserverId(String appserverId) {
+		this.appserverId = appserverId;
+	}
+
+	private String getAppserverId() {
+		return appserverId;
+	}
+	
+
+	public String getContainerHomePath() {
+		return containerHomePath;
+	}
+
+	public void setContainerHomePath(String containerHomePath) {
+		this.containerHomePath = containerHomePath;
+	}
+
 }
