@@ -15,6 +15,7 @@ import org.codehaus.cargo.container.ContainerType;
 import org.codehaus.cargo.container.InstalledLocalContainer;
 import org.codehaus.cargo.container.configuration.ConfigurationType;
 import org.codehaus.cargo.container.configuration.LocalConfiguration;
+import org.codehaus.cargo.container.configuration.StandaloneLocalConfiguration;
 import org.codehaus.cargo.container.deployable.DeployableType;
 import org.codehaus.cargo.container.deployable.WAR;
 import org.codehaus.cargo.container.installer.Installer;
@@ -28,8 +29,8 @@ import org.codehaus.cargo.generic.deployable.DeployableFactory;
 import org.codehaus.cargo.util.FileUtils;
 
 import com.idega.eplatform.util.FileDownloader;
-import com.idega.manager.business.RepositoryBrowserM2;
-import com.idega.manager.data.RepositoryLogin;
+import com.idega.manager.maven2.RepositoryBrowserM2;
+import com.idega.manager.maven1.data.RepositoryLogin;
 
 public class AppserverManager implements Runnable {
 	
@@ -41,6 +42,7 @@ public class AppserverManager implements Runnable {
 	private static final String SEPERATOR = File.separator;
 	private File applicationInstallDir;
 	private File managerServerDir;
+	private File databasesDir;
 	private String logfile;
 	private InstalledLocalContainer managerContainer;
 	private int serverPort = 8080;
@@ -65,6 +67,7 @@ public class AppserverManager implements Runnable {
 	private boolean runInDebugMode = false;
 	@SuppressWarnings("deprecation")
 	private FileUtils fileUtil;
+	
 
 	
 	@SuppressWarnings("deprecation")
@@ -72,6 +75,7 @@ public class AppserverManager implements Runnable {
 		log(baseDir.toString());
 		this.applicationInstallDir=baseDir;
 		this.managerServerDir= new File(baseDir,"appserver");
+		this.databasesDir = new File(applicationInstallDir, DATABASES_DIR_NAME);
 		this.logfile = new File(managerServerDir,"out.log").toString();
 		this.fileUtil = new FileUtils();
 	}
@@ -124,14 +128,13 @@ public class AppserverManager implements Runnable {
 			systemprops.put("runjdwp:transport","dt_socket,server=y,suspend=n,address=10041");
 		}
 		
-		String databasePropertiesFileName = "db.properties.hsqldb";
-		try {
-			this.fileUtil.createDirectory(this.getApplicationInstallDir(), DATABASES_DIR_NAME);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		//String databasePropertiesFileName = "db.properties.hsqldb";
+
+		getDatabasesDir().mkdirs();
+		//this.fileUtil.createDirectory(this.getApplicationInstallDir(), DATABASES_DIR_NAME);
+
 		
-		systemprops.put("idegaweb.db.properties",this.getApplicationInstallDir().getAbsolutePath()+SEPERATOR+"plugins"+SEPERATOR+"com.idega.app.eplatform_4.0.0"+SEPERATOR+databasePropertiesFileName);
+		//systemprops.put("idegaweb.db.properties",this.getApplicationInstallDir().getAbsolutePath()+SEPERATOR+"plugins"+SEPERATOR+"com.idega.app.eplatform_4.0.0"+SEPERATOR+databasePropertiesFileName);
 		//systemprops.put("user.dir",appserverBaseDir);
 		
 		container.setSystemProperties(systemprops);
@@ -235,6 +238,7 @@ public class AppserverManager implements Runnable {
 			
 			String groupId = "com.idega.webapp.custom";
 			String artifactId = "lucid";
+			//String artifactId = "felixclub";
 			
 			String url = browser.getArtifactUrlForMostRecent(groupId, artifactId);
 			return url;
@@ -260,6 +264,8 @@ public class AppserverManager implements Runnable {
 		}
 		else{
 			context ="/";
+			setWebAppContext(context);
+			war.setContext(context);
 		}
 		
 		log("Deploying WAR file: "+this.webappName+ " to the context : "+context);
@@ -276,14 +282,14 @@ public class AppserverManager implements Runnable {
 			//install tomcat if neededd otherwise load existing app
 			if(installDir.exists()){
 				log("Application server found, configuring.");
-				managerContainer = createExistingContainer(installDir.toString());
+				managerContainer = createContainer(installDir,true);
 				setContainerSettings(managerContainer);
 			}
 			else{
 				log("No application server found, downloading.");
 				if(installApplicationServer()){
 					log("Application server installed, configuring.");
-					managerContainer = createExistingContainer(null);
+					managerContainer = createContainer(installDir,false);
 				}
 				else{
 					log("Application server install FAILED, please quit and try again.");
@@ -299,6 +305,9 @@ public class AppserverManager implements Runnable {
 		}
 		try{
 //			then start
+			String[] extraClasspath = getExtraClasspath();
+			managerContainer.setExtraClasspath(extraClasspath);
+			
 			managerContainer.start();
 			setStarted(true);
 			log("Application server started. Done");
@@ -314,6 +323,19 @@ public class AppserverManager implements Runnable {
 		
 	}
 	
+	private String[] getExtraClasspath() {
+		
+		String jdbcDriverPath = getJdbcDriverPath();
+		String[] paths = {jdbcDriverPath};
+		// TODO Auto-generated method stub
+		return paths;
+	}
+
+	private String getJdbcDriverPath() {
+		String hsqlPath = "c:\\hsqldb-1.8.0.2.jar";
+		return hsqlPath;
+	}
+
 	private void storeContainerSettings(File baseInstallDir,InstalledLocalContainer managerContainer2) {
 
 		
@@ -325,9 +347,10 @@ public class AppserverManager implements Runnable {
 			if(!baseInstallPath.endsWith(SEPERATOR)){
 				baseInstallPath+=SEPERATOR;
 			}
-			String relativePath = fullPath.substring(baseInstallPath.length(),fullPath.length());
-			
-			prop.setProperty("tomcat0.home.dir",relativePath);
+			if(fullPath!=null){
+				String relativePath = fullPath.substring(baseInstallPath.length(),fullPath.length());
+				prop.setProperty("tomcat0.home.dir",relativePath);
+			}
 			prop.store(new FileOutputStream(new File(baseInstallDir,"installation.properties")), null);
 		}
 		catch (FileNotFoundException e) {
@@ -338,10 +361,19 @@ public class AppserverManager implements Runnable {
 		}
 	}
 
-	private InstalledLocalContainer createExistingContainer(String installDir) {
-		String homeDir = getWebAppFolderPath();
+	private InstalledLocalContainer createContainer(File installDir,boolean existing) {
+		//String homeDir = getWebAppFolderPath();
+		File newHomeDir = new File(getManagerServerDir(),"tomcat0");
+		boolean homeExisted=true;
+		if(!newHomeDir.exists()){
+			newHomeDir.mkdir();
+			homeExisted=false;
+		}
+		String homeDir = newHomeDir.toString();
+			
 		
-		if(homeDir==null){
+		//if(homeDir==null){
+		if(!homeExisted){
 			Properties prop = new Properties();
 			try {
 				prop.load(new FileInputStream(new File(installDir,"installation.properties")));
@@ -353,7 +385,10 @@ public class AppserverManager implements Runnable {
 				}
 			}
 			catch (FileNotFoundException e) {
-				e.printStackTrace();
+				//e.printStackTrace();
+				if(!installDir.exists()){
+					installDir.mkdir();
+				}
 			}
 			catch (IOException e) {
 				e.printStackTrace();
@@ -364,10 +399,22 @@ public class AppserverManager implements Runnable {
 		
 		
 		ConfigurationFactory configurationFactory = new DefaultConfigurationFactory();
-		LocalConfiguration configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.EXISTING,homeDir);
-//		configuration.setProperty(ServletPropertySet.PORT,Integer.toString(serverPort));
+		LocalConfiguration configuration=null;
+		if(existing){
+			configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.EXISTING,homeDir);
+		}
+		else{
+			configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.STANDALONE,homeDir);
+			//configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.STANDALONE);
+			StandaloneLocalConfiguration standalone = (StandaloneLocalConfiguration) configuration;
+		}
+		//		configuration.setProperty(ServletPropertySet.PORT,Integer.toString(serverPort));
 		
-		String datasource="cargo.datasource.url=jdbc:hsqldb:mem:idega|" +
+		String dbName = "idegaweb0";
+		String databasePath = getDatabasesDir().getPath()+File.separator+dbName;
+		String dbUrl = "jdbc:hsqldb:file://"+databasePath;
+		
+		String datasource="cargo.datasource.url="+dbUrl+"|" +
 				"cargo.datasource.driver=org.hsqldb.jdbcDriver|" +
 				"cargo.datasource.username=sa|" +
 				"cargo.datasource.password=|" +
@@ -386,7 +433,9 @@ public class AppserverManager implements Runnable {
 		//managerContainer = new Tomcat5xInstalledLocalContainer(conf);
 		
 		
-		managerContainer.setHome(homeDir);
+		//managerContainer.setHome(homeDir);
+		managerContainer.setHome(getWebAppFolderPath());
+		//managerContainer.setHome(installDir.toString());
 		managerContainer.setTimeout(600000);
 		return managerContainer;
 	}
@@ -430,7 +479,8 @@ public class AppserverManager implements Runnable {
 	}
 	
 	public String getMainAppURL(){
-		return "http://"+getHostName()+":"+getServerPort()+((getWebAppContext()==null)?"/":getWebAppContext())+"workspace/site/";
+		String initialAppPath = "workspace/";
+		return "http://"+getHostName()+":"+getServerPort()+((getWebAppContext()==null)?"/":getWebAppContext())+initialAppPath;
 	}
 
 	public void log(String logMessage){
@@ -476,5 +526,13 @@ public class AppserverManager implements Runnable {
 
 	public void setWebAppFolderPath(String webAppFolderPath) {
 		this.webAppFolderPath = webAppFolderPath;
+	}
+
+	public File getDatabasesDir() {
+		return databasesDir;
+	}
+
+	public void setDatabasesDir(File databasesDir) {
+		this.databasesDir = databasesDir;
 	}
 }

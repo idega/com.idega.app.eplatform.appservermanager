@@ -13,7 +13,7 @@ Bundle-ClassPath: appservermanager.jar,
  lib/plexus-utils-1.4.6.jar,
  lib/jug-1.1.2.jar,
  lib/wagon-provider-api-1.0-beta-2.jar,
- lib/cargo-core-uberjar-1.0-alpha-2.jar
+ lib/cargo-core-uberjar-1.0-SNAPSHOT.jar
 Bundle-Activator: com.idega.app.eplatform.appservermanager.AppservermanagerPlugin
 Bundle-Vendor: IDEGA
 Bundle-Localization: plugin
