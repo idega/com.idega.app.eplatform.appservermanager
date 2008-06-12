@@ -28,6 +28,8 @@ import org.codehaus.cargo.generic.deployable.DefaultDeployableFactory;
 import org.codehaus.cargo.generic.deployable.DeployableFactory;
 import org.codehaus.cargo.util.FileUtils;
 
+import sun.security.action.GetBooleanAction;
+
 import com.idega.eplatform.util.FileDownloader;
 import com.idega.manager.maven2.RepositoryBrowserM2;
 import com.idega.manager.maven1.data.RepositoryLogin;
@@ -332,7 +334,7 @@ public class AppserverManager implements Runnable {
 	}
 
 	private String getJdbcDriverPath() {
-		String hsqlPath = "c:\\hsqldb-1.8.0.2.jar";
+		String hsqlPath = getApplicationInstallDir().getPath()+File.separator+"hsqldb-1.8.0.2.jar";
 		return hsqlPath;
 	}
 
@@ -412,7 +414,7 @@ public class AppserverManager implements Runnable {
 		
 		String dbName = "idegaweb0";
 		String databasePath = getDatabasesDir().getPath()+File.separator+dbName;
-		String dbUrl = "jdbc:hsqldb:file://"+databasePath;
+		String dbUrl = "jdbc:hsqldb:file:"+databasePath;
 		
 		String datasource="cargo.datasource.url="+dbUrl+"|" +
 				"cargo.datasource.driver=org.hsqldb.jdbcDriver|" +
@@ -451,7 +453,22 @@ public class AppserverManager implements Runnable {
 		return started;
 	}
 
+	private AppserverStartedListener startedListener;
+	
+	public AppserverStartedListener getStartedListener() {
+		return startedListener;
+	}
+
+	public void setStartedListener(AppserverStartedListener startedListener) {
+		this.startedListener = startedListener;
+	}
+
 	public void setStarted(boolean started) {
+		if(started){
+			if(this.startedListener!=null){
+				this.startedListener.notifyStarted();
+			}
+		}
 		this.started = started;
 	}
 	
