@@ -39,8 +39,15 @@ public class IdegawebAppserverInstance implements AppserverInstance,Runnable {
 	private static final String TOMCAT_5_5_DOWNLOAD_URL = "http://apache.tradebit.com/pub/tomcat/tomcat-5/v5.5.25/bin/apache-tomcat-5.5.25.zip";
 	private static final String TOMCAT_6_0_DOWNLOAD_URL = "http://apache.tradebit.com/pub/tomcat/tomcat-6/v6.0.14/bin/apache-tomcat-6.0.14.zip";
 	private static final String JBOSS_DOWNLOAD_URL = "http://heanet.dl.sourceforge.net/sourceforge/jboss/jboss-4.0.5.GA.zip";
+	
+	private static final String JBOSS4_CONTAINER = "jboss4x";
+	private static final String TOMCAT5_CONTAINER = "tomcat5x";
+	private static final String TOMCAT6_CONTAINER = "tomcat6x";
+	
 	private static final String DATABASES_DIR_NAME = "databases";
 	private static final String SEPERATOR = File.separator;
+
+	
 	private File applicationInstallDir;
 	private File managerServerDir;
 	private File databasesDir;
@@ -51,15 +58,16 @@ public class IdegawebAppserverInstance implements AppserverInstance,Runnable {
 	boolean started = false;
 	private String status;
 	
-	//private String managerContainerId="jboss4x";
-	private static String managerContainerId="tomcat5x";
+	//private String managerContainerId=JBOSS4_CONTAINER;
+	//private static String managerContainerId=TOMCAT5_CONTAINER;
+	private static String managerContainerId=TOMCAT6_CONTAINER;
 	
 	private String webAppContext;
 	private String webappName="ROOT";
 	private String appserverHomePath;
 	private String containerHomePath;
 	
-	private boolean useJBoss = false;
+	//private boolean useJBoss = false;
 	
 	boolean usePlatform4 = true;
 
@@ -257,12 +265,17 @@ public class IdegawebAppserverInstance implements AppserverInstance,Runnable {
 
 	protected String getAppServerDownloadURL() {
 		if(usePlatform4){
-			if(useJBoss){
+			if(this.managerContainerId.equals(JBOSS4_CONTAINER)){
 				return JBOSS_DOWNLOAD_URL;
+			}
+			else if(this.managerContainerId.equals(TOMCAT5_CONTAINER)){
+				return TOMCAT_5_5_DOWNLOAD_URL;
+			}
+			else if(this.managerContainerId.equals(TOMCAT6_CONTAINER)){
+				return TOMCAT_6_0_DOWNLOAD_URL;
 			}
 			else{
 				return TOMCAT_5_5_DOWNLOAD_URL;
-//				return TOMCAT_6_0_DOWNLOAD_URL;
 			}
 		}
 		else{
@@ -272,16 +285,21 @@ public class IdegawebAppserverInstance implements AppserverInstance,Runnable {
 
 	protected File getAppServerFile() {
 		if(usePlatform4){
-			if(useJBoss){
+			if(this.managerContainerId.equals(JBOSS4_CONTAINER)){
 				return new File(getDownloadDir(),JBOSS_DOWNLOAD_URL.substring(JBOSS_DOWNLOAD_URL.lastIndexOf("/")+1));
+			}
+			else if(this.managerContainerId.equals(TOMCAT5_CONTAINER)){
+				return new File(getDownloadDir(),TOMCAT_5_5_DOWNLOAD_URL.substring(TOMCAT_5_5_DOWNLOAD_URL.lastIndexOf("/")+1));
+			}
+			else if(this.managerContainerId.equals(TOMCAT6_CONTAINER)){
+				return new File(getDownloadDir(),TOMCAT_6_0_DOWNLOAD_URL.substring(TOMCAT_6_0_DOWNLOAD_URL.lastIndexOf("/")+1));
 			}
 			else{
 				return new File(getDownloadDir(),TOMCAT_5_5_DOWNLOAD_URL.substring(TOMCAT_5_5_DOWNLOAD_URL.lastIndexOf("/")+1));
-//				return new File(getDownloadDir(),TOMCAT_6_0_DOWNLOAD_URL.substring(TOMCAT_6_0_DOWNLOAD_URL.lastIndexOf("/")+1));
 			}
 		}
 		else{
-			return new File(getDownloadDir(),TOMCAT_5_0_DOWNLOAD_URL.substring(TOMCAT_5_0_DOWNLOAD_URL.lastIndexOf("/")+1));
+			return new File(getDownloadDir(),TOMCAT_5_5_DOWNLOAD_URL.substring(TOMCAT_5_5_DOWNLOAD_URL.lastIndexOf("/")+1));
 		}
 	}
 	
