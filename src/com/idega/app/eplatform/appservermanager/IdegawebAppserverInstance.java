@@ -33,7 +33,7 @@ import com.idega.eplatform.util.FileDownloader;
 import com.idega.manager.maven1.data.RepositoryLogin;
 import com.idega.manager.maven2.RepositoryBrowserM2;
 
-public class IdegawebAppserverInstance implements AppserverInstance,Runnable {
+public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 	
 	private static final String TOMCAT_5_0_DOWNLOAD_URL = "http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip";
 	private static final String TOMCAT_5_5_DOWNLOAD_URL = "http://apache.tradebit.com/pub/tomcat/tomcat-5/v5.5.25/bin/apache-tomcat-5.5.25.zip";
@@ -512,13 +512,13 @@ public class IdegawebAppserverInstance implements AppserverInstance,Runnable {
 		return started;
 	}
 
-	private AppserverStartedListener startedListener;
+	private WebappStartedListener startedListener;
 	
-	public AppserverStartedListener getStartedListener() {
+	public WebappStartedListener getStartedListener() {
 		return startedListener;
 	}
 
-	public void setStartedListener(AppserverStartedListener startedListener) {
+	public void setStartedListener(WebappStartedListener startedListener) {
 		this.startedListener = startedListener;
 	}
 

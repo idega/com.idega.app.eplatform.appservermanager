@@ -8,13 +8,13 @@ import org.mortbay.jetty.bio.SocketConnector;
 import org.mortbay.jetty.handler.HandlerCollection;
 import org.mortbay.jetty.servlet.Context;
 
-public class EmbeddedManagementServerInstance implements AppserverInstance {
+public class EmbeddedManagementServerInstance implements WebappInstance {
 
 	int port = 8080;
 	String hostname = "localhost";
 	Server server;
 	boolean started=false;
-	private AppserverStartedListener startedListener;
+	private WebappStartedListener startedListener;
 	
 	public EmbeddedManagementServerInstance(File baseDir) {
 		// TODO Auto-generated constructor stub
@@ -51,7 +51,7 @@ public class EmbeddedManagementServerInstance implements AppserverInstance {
 		this.started=started;
 	}
 
-	public void setStartedListener(AppserverStartedListener startedListener) {
+	public void setStartedListener(WebappStartedListener startedListener) {
 		this.startedListener=startedListener;
 
 	}

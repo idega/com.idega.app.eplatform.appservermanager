@@ -7,27 +7,27 @@ import java.util.List;
 public class AppserverManager implements Runnable {
 
 	private File baseDir;
-	private List<AppserverInstance> instances = new ArrayList<AppserverInstance>();
+	private List<WebappInstance> instances = new ArrayList<WebappInstance>();
 
 	public AppserverManager(File baseDir) {
 		this.baseDir=baseDir;
-		createMainAppserver();
+		createMainWebapp();
 	}
 
-	private AppserverInstance createMainAppserver() {
-		//AppserverInstance instance0 = new IdegawebAppserverInstance(this.baseDir);
-		AppserverInstance instance0 = new EmbeddedManagementServerInstance(this.baseDir);
+	private WebappInstance createMainWebapp() {
+		WebappInstance instance0 = new IdegawebAppserverInstance(this.baseDir);
+		//AppserverInstance instance0 = new EmbeddedManagementServerInstance(this.baseDir);
 		getInstances().add(instance0);
 		return instance0;
 	}
 
 	public void run() {
-		getMainAppserver().start();
+		getMainWebapp().start();
 	}
 
 	public void stop() {
 		// TODO Auto-generated method stub
-		for(AppserverInstance instance: instances){
+		for(WebappInstance instance: instances){
 			instance.stop();
 		}
 	}
@@ -40,15 +40,15 @@ public class AppserverManager implements Runnable {
 		this.baseDir = baseDir;
 	}
 
-	public List<AppserverInstance> getInstances() {
+	public List<WebappInstance> getInstances() {
 		return instances;
 	}
 
-	public void setInstances(List<AppserverInstance> instances) {
+	public void setInstances(List<WebappInstance> instances) {
 		this.instances = instances;
 	}
 
-	public AppserverInstance getMainAppserver(){
+	public WebappInstance getMainWebapp(){
 		return getInstances().get(0);
 	}
 	
