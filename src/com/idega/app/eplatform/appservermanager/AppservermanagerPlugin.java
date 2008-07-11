@@ -41,11 +41,31 @@ public class AppservermanagerPlugin implements BundleActivator{// extends Plugin
 		//sBaseDirUrl = "file:/idega/eplatform-app";
 		
 		//Specially replace the space:
-		String newUri = sBaseDirUrl.replaceAll(" ","%20");
-		URI baseDirUri = new URI(newUri);
+		sBaseDirUrl = sBaseDirUrl.replaceAll(" ","%20");
+		URI baseDirUri = new URI(sBaseDirUrl);
 		File baseDir = new File(baseDirUri);
+		String bundleLocation = context.getBundle().getLocation();
+		if(bundleLocation.startsWith("initial@reference:")){
+			bundleLocation = bundleLocation.substring("initial@reference:".length());
+		}
+		URI bundleLocationURI = null;
 		
-		manager = new AppserverManager(baseDir);
+		if(bundleLocation.startsWith("file:")){
+			bundleLocation = bundleLocation.substring("file:".length());
+			bundleLocation=sBaseDirUrl+bundleLocation;
+		}
+		try{
+			bundleLocation = bundleLocation.replaceAll(" ","%20");
+			bundleLocationURI = new URI(bundleLocation);
+		}
+		catch(Exception e){
+			e.printStackTrace();
+		}
+		File bundleLocationFolder = new File(bundleLocationURI);
+		if(bundleLocationFolder.exists()){
+			System.out.println("BundleFolder: "+bundleLocationFolder.getPath());
+		}
+		manager = new AppserverManager(baseDir,bundleLocationFolder);
 		Thread starter = new Thread(manager);
 		starter.start();
 		

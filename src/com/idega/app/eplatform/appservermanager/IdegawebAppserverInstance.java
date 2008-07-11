@@ -1,10 +1,13 @@
 package com.idega.app.eplatform.appservermanager;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
@@ -21,6 +24,7 @@ import org.codehaus.cargo.container.deployable.WAR;
 import org.codehaus.cargo.container.installer.Installer;
 import org.codehaus.cargo.container.installer.ZipURLInstaller;
 import org.codehaus.cargo.container.property.DatasourcePropertySet;
+import org.codehaus.cargo.container.property.GeneralPropertySet;
 import org.codehaus.cargo.container.property.ServletPropertySet;
 import org.codehaus.cargo.generic.DefaultContainerFactory;
 import org.codehaus.cargo.generic.configuration.ConfigurationFactory;
@@ -44,16 +48,23 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 	private static final String TOMCAT5_CONTAINER = "tomcat5x";
 	private static final String TOMCAT6_CONTAINER = "tomcat6x";
 	
-	private static final String DATABASES_DIR_NAME = "databases";
+	private static final String DATABASES_DIR_NAME = "data";
+	private static final String APPSERVERS_DIR = "applications";
+	private static final String EXTRA_LIB_DIR_NAME = "extra-lib";
+	
 	private static final String SEPERATOR = File.separator;
+	boolean changeJavaHome=false;
 
 	
 	private File applicationInstallDir;
 	private File managerServerDir;
 	private File databasesDir;
+	private File dataDir;
 	private String logfile;
 	private InstalledLocalContainer managerContainer;
-	private int serverHttpPort = 8080;
+	private int serverHttpPort = 9000;
+	private int serverAjpPort = 9300;
+	private int serverRMIPort = 9200;
 	private String appserverId="tomcat0";
 	boolean started = false;
 	private String status;
@@ -71,23 +82,27 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 	
 	boolean usePlatform4 = true;
 
-	private static String currentVersion = "4.0.3-SNAPSHOT";
-//	private static String currentVersionAndName = "felixclub-"+currentVersion+".war";
-	private static String currentVersionAndName = "felixclub-4.0.3-20080130.145328-1.war";
+	//private static String currentVersion = "4.0.3-SNAPSHOT";
+	//private static String currentVersionAndName = "felixclub-"+currentVersion+".war";
+	//private static String currentVersionAndName = "felixclub-4.0.3-20080130.145328-1.war";
 	
 	private boolean runInDebugMode = false;
 	@SuppressWarnings("deprecation")
 	private FileUtils fileUtil;
+	private File libDir;
+	private File bundleDir;
 	
 
 	
 	@SuppressWarnings("deprecation")
-	public IdegawebAppserverInstance(File baseDir){
+	public IdegawebAppserverInstance(File baseDir,File bundleDir){
 		log(baseDir.toString());
 		this.applicationInstallDir=baseDir;
-		this.managerServerDir= new File(baseDir,"appserver");
+		this.managerServerDir= new File(baseDir,APPSERVERS_DIR);
 		this.databasesDir = new File(applicationInstallDir, DATABASES_DIR_NAME);
-		this.logfile = new File(managerServerDir,"out.log").toString();
+		this.bundleDir=bundleDir;
+		this.libDir = getExtraLibsDir();
+		this.logfile = new File(managerServerDir,this.getAppserverId()+"-out.log").toString();
 		this.fileUtil = new FileUtils();
 	}
 	
@@ -196,7 +211,9 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 			installer = new ZipURLInstaller(applicationServerUrl,installDir.toString());
 			installer.install();
 			
-			setContainerHomePath(installer.getHome());	
+			setContainerHomePath(installer.getHome());
+			
+			updateContainerLib(installer.getHome());
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -204,6 +221,35 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		}
 		
 		return true;
+	}
+
+	private void updateContainerLib(String home) {
+		
+		File libDir = getLibDir();
+		//Only works for tomcat6:
+		File containerLib = new File(home,"lib");
+		
+		File[] libs = libDir.listFiles();
+		for (int i = 0; i < libs.length; i++) {
+			File lib = libs[i];
+			if(lib.isFile()){
+			File destinationFile = new File(containerLib,lib.getName());
+			try {
+				destinationFile.createNewFile();
+				FileInputStream in = new FileInputStream(lib);			
+				FileOutputStream out = new FileOutputStream(destinationFile);
+				fileUtil.copy(in, out);
+				in.close();
+				out.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			}
+			
+		}
+		
+		
 	}
 
 	private File getManagerServerDir() {
@@ -220,6 +266,13 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		systemprops.put("java.awt.headless","true");
 		systemprops.put("file.encoding","UTF-8");
 		
+
+		getDataDir().mkdirs();
+		String dataDir = getDataDir().getPath();
+		if(changeJavaHome){
+			systemprops.put("user.dir",dataDir);
+			systemprops.put("user.home",dataDir);
+		}
 		if(runInDebugMode ){
 			//TODO get this to work
 			systemprops.put("agent","");
@@ -228,7 +281,6 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		
 		//String databasePropertiesFileName = "db.properties.hsqldb";
 
-		getDatabasesDir().mkdirs();
 		//this.fileUtil.createDirectory(this.getApplicationInstallDir(), DATABASES_DIR_NAME);
 
 		
@@ -285,35 +337,41 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 
 	protected File getAppServerFile() {
 		if(usePlatform4){
-			if(this.managerContainerId.equals(JBOSS4_CONTAINER)){
-				return new File(getDownloadDir(),JBOSS_DOWNLOAD_URL.substring(JBOSS_DOWNLOAD_URL.lastIndexOf("/")+1));
+			if(managerContainerId.equals(JBOSS4_CONTAINER)){
+				return getLocalFileFromURL(JBOSS_DOWNLOAD_URL);
 			}
-			else if(this.managerContainerId.equals(TOMCAT5_CONTAINER)){
-				return new File(getDownloadDir(),TOMCAT_5_5_DOWNLOAD_URL.substring(TOMCAT_5_5_DOWNLOAD_URL.lastIndexOf("/")+1));
+			else if(managerContainerId.equals(TOMCAT5_CONTAINER)){
+				return getLocalFileFromURL(TOMCAT_5_5_DOWNLOAD_URL);
 			}
-			else if(this.managerContainerId.equals(TOMCAT6_CONTAINER)){
-				return new File(getDownloadDir(),TOMCAT_6_0_DOWNLOAD_URL.substring(TOMCAT_6_0_DOWNLOAD_URL.lastIndexOf("/")+1));
+			else if(managerContainerId.equals(TOMCAT6_CONTAINER)){
+				return getLocalFileFromURL(TOMCAT_6_0_DOWNLOAD_URL);
 			}
 			else{
-				return new File(getDownloadDir(),TOMCAT_5_5_DOWNLOAD_URL.substring(TOMCAT_5_5_DOWNLOAD_URL.lastIndexOf("/")+1));
+				return getLocalFileFromURL(TOMCAT_5_5_DOWNLOAD_URL);
 			}
 		}
 		else{
-			return new File(getDownloadDir(),TOMCAT_5_5_DOWNLOAD_URL.substring(TOMCAT_5_5_DOWNLOAD_URL.lastIndexOf("/")+1));
+			return getLocalFileFromURL(TOMCAT_5_5_DOWNLOAD_URL);
 		}
+	}
+
+	private File getLocalFileFromURL(String url) {
+		return new File(getDownloadDir(),url.substring(url.lastIndexOf("/")+1));
 	}
 	
 	
 	@SuppressWarnings("deprecation")
 	protected File getWarFile(){
-		File war = new File(getDownloadDir(),webappName+".war");
+		
+		String warDownloadUrl = getWarDownloadURL();
+		File war = getLocalFileFromURL(warDownloadUrl);
 		//download the file if it doesn't exist:
 		if(!war.exists()){
 			FileDownloader grabber;
 			try {
 				
 				war.createNewFile();
-				grabber = new FileDownloader(new URL(getEPlatformDownloadURL()),war);
+				grabber = new FileDownloader(new URL(warDownloadUrl),war);
 				
 				Thread thread = new Thread(grabber);
 				thread.start();
@@ -339,18 +397,53 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		return war;
 	}
 
-	protected String getEPlatformDownloadURL() {
+	protected String getWarDownloadURL() {
+
+		
 		if(usePlatform4){
-			RepositoryLogin login = RepositoryLogin.getInstanceWithoutAuthentication("http://repository.idega.com/maven2");
-			RepositoryBrowserM2 browser = new RepositoryBrowserM2(login);
-			
 			String groupId = "com.idega.webapp.custom";
-			String artifactId = "lucid";
-			//String artifactId = "felixclub";
+			final String artifactId = "lucid";
+			try{
+				RepositoryLogin login = RepositoryLogin.getInstanceWithoutAuthentication("http://repository.idega.com/maven2");
+				RepositoryBrowserM2 browser = new RepositoryBrowserM2(login);
+				
+	
+				//String artifactId = "felixclub";
+				
+				String url = browser.getArtifactUrlForMostRecent(groupId, artifactId);
+				return url;
+				//return "http://repository.idega.com/maven2/com/idega/webapp/custom/felixclub/"+currentVersion+"/"+currentVersionAndName;
 			
-			String url = browser.getArtifactUrlForMostRecent(groupId, artifactId);
-			return url;
-			//return "http://repository.idega.com/maven2/com/idega/webapp/custom/felixclub/"+currentVersion+"/"+currentVersionAndName;
+			}
+			catch(Exception e){
+				File downloadDir=getDownloadDir();
+				FileFilter filter = new FileFilter(){
+
+					public boolean accept(File pathname) {
+						if(pathname.getName().startsWith(artifactId)){
+							return true;
+						}
+						return false;
+					}
+					
+				};
+				File[] files=downloadDir.listFiles(filter);
+				if(files.length>0){
+					URI uri =  files[0].toURI();
+					String sURL=null;
+					try {
+						sURL = uri.toURL().toExternalForm();
+					} catch (MalformedURLException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+
+					return sURL;
+				}
+				else {
+					throw new RuntimeException("Cannot contact repository to download files");
+				}
+			}
 		}
 		else{
 			return "http://repository.idega.com/maven/iw-applications/wars/eplatform-3.1.60.war";
@@ -391,8 +484,24 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		return paths;
 	}
 
+	public File getExtraLibsDir(){
+		File baseBundlePath = this.bundleDir;
+		if(baseBundlePath==null){
+			String pluginFolder="com.idega.app.eplatform.appservermanager_1.0.0";
+			baseBundlePath = new File(getApplicationInstallDir().getPath()+File.separator+"plugins"+File.separator+pluginFolder);
+		}
+		File libDir = new File(baseBundlePath,EXTRA_LIB_DIR_NAME);
+		if(libDir.exists()){
+				return libDir;
+		}
+		else{
+			throw new RuntimeException("Libraries dir not found");
+		}
+	}
+	
 	private String getJdbcDriverPath() {
-		String hsqlPath = getApplicationInstallDir().getPath()+File.separator+"hsqldb-1.8.0.2.jar";
+		String extraLibPath = getExtraLibsDir().getPath();
+		String hsqlPath = extraLibPath+"hsqldb-1.8.0.2.jar";
 		return hsqlPath;
 	}
 
@@ -419,6 +528,16 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 			String serverHttpPort = new Integer(getServerHttpPort()).toString();
 			if(serverHttpPort!=null){
 				prop.setProperty(getAppserverId()+".http.port",serverHttpPort);
+			}
+			
+			String serverAjpPort = new Integer(getServerAjpPort()).toString();
+			if(serverHttpPort!=null){
+				prop.setProperty(getAppserverId()+".ajp.port",serverAjpPort);
+			}
+			
+			String serverRmiPort = new Integer(getServerRMIPort()).toString();
+			if(serverHttpPort!=null){
+				prop.setProperty(getAppserverId()+".rmi.port",serverRmiPort);
 			}
 			
 			prop.store(new FileOutputStream(new File(baseInstallDir,"installation.properties")), null);
@@ -458,8 +577,11 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 			//configuration = (LocalConfiguration) configurationFactory.createConfiguration(managerContainerId, ContainerType.INSTALLED, ConfigurationType.STANDALONE);
 			StandaloneLocalConfiguration standalone = (StandaloneLocalConfiguration) configuration;
 			
-			String dbName = getAppserverId()+"DB";
-			String databasePath = getDatabasesDir().getPath()+File.separator+dbName;
+			String dbName = getAppserverId();
+			
+			File hsqlDatabaseDir = new File(getDataDir(),"hsqldb");
+			hsqlDatabaseDir.mkdirs();
+			String databasePath = hsqlDatabaseDir.getPath()+File.separator+dbName;
 			String dbUrl = "jdbc:hsqldb:file:"+databasePath;
 			dbUrl = dbUrl.replace("\\", "\\\\");
 			
@@ -478,9 +600,10 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 			configuration.setProperty("cargo.datasource.type", "javax.sql.DataSource");
 			configuration.setProperty("cargo.datasource.jndi", "jdbc/DefaultDS");*/
 			
-			int defaultPort = 9000;
-			setServerHttpPort(defaultPort);
-			configuration.setProperty(ServletPropertySet.PORT,Integer.toString(defaultPort));
+			configuration.setProperty(ServletPropertySet.PORT,Integer.toString(getServerHttpPort()));
+			
+			configuration.setProperty(GeneralPropertySet.RMI_PORT,Integer.toString(getServerRMIPort()));
+			configuration.setProperty("cargo.ajp.port",Integer.toString(getServerAjpPort()));
 			
 			storeContainerSettings(installDir,newCreatedHomeDirString);
 
@@ -501,6 +624,12 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		return managerContainer;
 	}
 
+	private void initializePortsConfiguration() {
+		//int defaultPort = 9000;
+		//setServerHttpPort(defaultPort);
+		
+	}
+
 	public void stop(){
 		if(managerContainer!=null){
 			log("stopping tomcat");
@@ -513,6 +642,7 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 	}
 
 	private WebappStartedListener startedListener;
+
 	
 	public WebappStartedListener getStartedListener() {
 		return startedListener;
@@ -536,7 +666,7 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		String fileUri = "file:/idega/eplatform-app";
 		//File baseDir = new File(new URI("file:/Applications/eclipse3.1M7"));
 		File baseDir = new File(new URI(fileUri));
-		IdegawebAppserverInstance manager = new IdegawebAppserverInstance(baseDir);
+		IdegawebAppserverInstance manager = new IdegawebAppserverInstance(baseDir,null);
 		Thread thread = new Thread(manager);
 		thread.start();
 		while(true){
@@ -608,12 +738,23 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		this.appserverHomePath = fullPath;
 	}
 
-	public File getDatabasesDir() {
+	public File getDataBaseDir() {
 		return databasesDir;
 	}
 
-	public void setDatabasesDir(File databasesDir) {
+	public void setDataBaseDir(File databasesDir) {
 		this.databasesDir = databasesDir;
+	}
+	
+	public File getDataDir(){
+		if(this.dataDir==null){
+			this.dataDir=new File(getDataBaseDir(),getAppserverId());
+		}
+		return this.dataDir;
+	}
+	
+	public void setDataDir(File dataDir){
+		this.dataDir=dataDir;
 	}
 
 	private void setAppserverId(String appserverId) {
@@ -631,6 +772,30 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 
 	public void setContainerHomePath(String containerHomePath) {
 		this.containerHomePath = containerHomePath;
+	}
+
+	public File getLibDir() {
+		return libDir;
+	}
+
+	public void setLibDir(File libDir) {
+		this.libDir = libDir;
+	}
+
+	public int getServerAjpPort() {
+		return serverAjpPort;
+	}
+
+	public void setServerAjpPort(int serverAjpPort) {
+		this.serverAjpPort = serverAjpPort;
+	}
+
+	public int getServerRMIPort() {
+		return serverRMIPort;
+	}
+
+	public void setServerRMIPort(int serverRMIPort) {
+		this.serverRMIPort = serverRMIPort;
 	}
 
 }

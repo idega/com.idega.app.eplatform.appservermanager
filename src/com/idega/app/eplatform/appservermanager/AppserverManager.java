@@ -8,15 +8,21 @@ public class AppserverManager implements Runnable {
 
 	private File baseDir;
 	private List<WebappInstance> instances = new ArrayList<WebappInstance>();
+	private File bundleLocation;
 
 	public AppserverManager(File baseDir) {
+		this(baseDir,null);
+	}
+
+	public AppserverManager(File baseDir, File bundleLocation) {
 		this.baseDir=baseDir;
+		this.bundleLocation=bundleLocation;
 		createMainWebapp();
 	}
 
 	private WebappInstance createMainWebapp() {
-		WebappInstance instance0 = new IdegawebAppserverInstance(this.baseDir);
-		//ebappInstance instance0 = new EmbeddedManagementServerInstance(this.baseDir);
+		WebappInstance instance0 = new IdegawebAppserverInstance(this.baseDir,this.bundleLocation);
+		//AppserverInstance instance0 = new EmbeddedManagementServerInstance(this.baseDir);
 		getInstances().add(instance0);
 		return instance0;
 	}
