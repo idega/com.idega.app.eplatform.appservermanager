@@ -5,15 +5,14 @@ import java.net.URI;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
-import org.eclipse.jface.resource.ImageDescriptor;
-import org.eclipse.ui.plugin.AbstractUIPlugin;
+import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 
 /**
  * The main plugin class to be used in the desktop.
  */
-public class AppservermanagerPlugin extends AbstractUIPlugin {
-	//The shared instance.
+public class AppservermanagerPlugin implements BundleActivator{// extends Plugin {
+	//T he shared instance.
 	private static AppservermanagerPlugin plugin;
 	//Resource bundle.
 	private ResourceBundle resourceBundle;
@@ -32,7 +31,7 @@ public class AppservermanagerPlugin extends AbstractUIPlugin {
 	 * This method is called upon plug-in activation
 	 */
 	public void start(BundleContext context) throws Exception {
-		super.start(context);
+		//super.start(context);
 		System.out.println("starting appservermanager plugin");
 
 		//get the installation dir of the app:
@@ -59,7 +58,7 @@ public class AppservermanagerPlugin extends AbstractUIPlugin {
 	 * This method is called when the plug-in is stopped
 	 */
 	public void stop(BundleContext context) throws Exception {
-		super.stop(context);
+		//super.stop(context);
 		manager.stop();
 		plugin = null;
 		resourceBundle = null;
@@ -96,17 +95,6 @@ public class AppservermanagerPlugin extends AbstractUIPlugin {
 			resourceBundle = null;
 		}
 		return resourceBundle;
-	}
-
-	/**
-	 * Returns an image descriptor for the image file at the given
-	 * plug-in relative path.
-	 *
-	 * @param path the path
-	 * @return the image descriptor
-	 */
-	public static ImageDescriptor getImageDescriptor(String path) {
-		return AbstractUIPlugin.imageDescriptorFromPlugin("com.idega.app.eplatform.appservermanager", path);
 	}
 
 	public AppserverManager getManager() {

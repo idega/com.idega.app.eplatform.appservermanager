@@ -20,14 +20,14 @@ Bundle-ClassPath: appservermanager.jar,
 Bundle-Activator: com.idega.app.eplatform.appservermanager.AppservermanagerPlugin
 Bundle-Vendor: IDEGA
 Bundle-Localization: plugin
-Require-Bundle: org.eclipse.ui,
- org.eclipse.core.runtime
+Require-Bundle: org.eclipse.core.runtime
 Eclipse-LazyStart: true
 Export-Package: com.idega.app.eplatform.appservermanager;
-  uses:="org.codehaus.cargo.container,
+  uses:="javax.servlet.http,
+   org.codehaus.cargo.container,
    org.osgi.framework,
-   org.eclipse.ui.plugin,
-   org.eclipse.jface.resource",
+   org.mortbay.jetty,
+   org.eclipse.core.runtime",
  com.idega.eplatform.util,
  images,
  org.apache.html.dom;
@@ -286,8 +286,8 @@ Export-Package: com.idega.app.eplatform.appservermanager;
   uses:="org.codehaus.cargo.container.configuration,
    org.codehaus.cargo.container.spi,
    org.codehaus.cargo.container.spi.configuration,
-   org.apache.tools.ant.taskdefs,
    org.apache.tools.ant.types,
+   org.apache.tools.ant.taskdefs,
    org.codehaus.cargo.container,
    org.codehaus.cargo.container.spi.deployer,
    org.codehaus.cargo.container.deployable,
@@ -323,8 +323,8 @@ Export-Package: com.idega.app.eplatform.appservermanager;
  org.codehaus.cargo.container.jboss.internal;x-internal:=true,
  org.codehaus.cargo.container.jetty;
   uses:="org.codehaus.cargo.container.configuration,
-   org.codehaus.cargo.container.spi,
    org.codehaus.cargo.container.spi.configuration,
+   org.codehaus.cargo.container.spi,
    org.apache.tools.ant.taskdefs,
    org.codehaus.cargo.container,
    org.codehaus.cargo.container.spi.deployer,
@@ -333,8 +333,8 @@ Export-Package: com.idega.app.eplatform.appservermanager;
  org.codehaus.cargo.container.jetty.internal;x-internal:=true,
  org.codehaus.cargo.container.jo;
   uses:="org.codehaus.cargo.container.configuration,
-   org.codehaus.cargo.container.spi,
    org.codehaus.cargo.container.spi.configuration,
+   org.codehaus.cargo.container.spi,
    org.apache.tools.ant.taskdefs,
    org.codehaus.cargo.container,
    org.codehaus.cargo.container.spi.deployer",
@@ -351,8 +351,8 @@ Export-Package: com.idega.app.eplatform.appservermanager;
  org.codehaus.cargo.container.resin;
   uses:="org.codehaus.cargo.container.configuration,
    org.codehaus.cargo.container.spi.configuration,
-   org.apache.tools.ant.taskdefs,
    org.apache.tools.ant.types,
+   org.apache.tools.ant.taskdefs,
    org.codehaus.cargo.container,
    org.codehaus.cargo.container.spi.deployer,
    org.codehaus.cargo.container.resin.internal",
@@ -389,8 +389,8 @@ Export-Package: com.idega.app.eplatform.appservermanager;
  org.codehaus.cargo.container.tomcat;
   uses:="org.codehaus.cargo.container.deployer,
    org.codehaus.cargo.container.configuration,
-   org.codehaus.cargo.container.spi.configuration,
    org.codehaus.cargo.container.spi,
+   org.codehaus.cargo.container.spi.configuration,
    org.apache.tools.ant.taskdefs,
    org.apache.tools.ant.types,
    org.codehaus.cargo.container.spi.deployer,
@@ -423,8 +423,8 @@ Export-Package: com.idega.app.eplatform.appservermanager;
   uses:="org.xml.sax,
    org.codehaus.cargo.module.ejb,
    org.jdom,
-   org.codehaus.cargo.module,
-   org.codehaus.cargo.module.webapp",
+   org.codehaus.cargo.module.webapp,
+   org.codehaus.cargo.module",
  org.codehaus.cargo.module.ejb;
   uses:="org.xml.sax,
    org.w3c.dom,
@@ -435,11 +435,11 @@ Export-Package: com.idega.app.eplatform.appservermanager;
  org.codehaus.cargo.module.ejb.websphere;uses:="org.codehaus.cargo.module.ejb,org.jdom,org.codehaus.cargo.module",
  org.codehaus.cargo.module.internal.resource;x-internal:=true,
  org.codehaus.cargo.module.merge;
-  uses:="org.codehaus.cargo.module.merge.tagstrategy,
-   org.xml.sax,
+  uses:="org.xml.sax,
+   org.codehaus.cargo.module.merge.tagstrategy,
    org.jdom,
-   org.codehaus.cargo.module,
-   org.codehaus.cargo.util",
+   org.codehaus.cargo.util,
+   org.codehaus.cargo.module",
  org.codehaus.cargo.module.webapp;
   uses:="org.xml.sax,
    org.xml.sax.helpers,

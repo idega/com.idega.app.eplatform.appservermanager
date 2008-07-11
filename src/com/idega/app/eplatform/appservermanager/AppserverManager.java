@@ -16,7 +16,7 @@ public class AppserverManager implements Runnable {
 
 	private WebappInstance createMainWebapp() {
 		WebappInstance instance0 = new IdegawebAppserverInstance(this.baseDir);
-		//AppserverInstance instance0 = new EmbeddedManagementServerInstance(this.baseDir);
+		//ebappInstance instance0 = new EmbeddedManagementServerInstance(this.baseDir);
 		getInstances().add(instance0);
 		return instance0;
 	}
