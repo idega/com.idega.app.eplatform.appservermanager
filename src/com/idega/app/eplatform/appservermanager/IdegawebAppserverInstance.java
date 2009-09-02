@@ -41,7 +41,7 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 	
 	private static final String TOMCAT_5_0_DOWNLOAD_URL = "http://apache.rhnet.is/dist/jakarta/tomcat-5/v5.0.28/bin/jakarta-tomcat-5.0.28.zip";
 	private static final String TOMCAT_5_5_DOWNLOAD_URL = "http://apache.tradebit.com/pub/tomcat/tomcat-5/v5.5.25/bin/apache-tomcat-5.5.25.zip";
-	private static final String TOMCAT_6_0_DOWNLOAD_URL = "http://apache.tradebit.com/pub/tomcat/tomcat-6/v6.0.14/bin/apache-tomcat-6.0.14.zip";
+	private static final String TOMCAT_6_0_DOWNLOAD_URL = "http://apache.dataphone.se/tomcat/tomcat-6/v6.0.20/bin/apache-tomcat-6.0.20.zip";
 	private static final String JBOSS_DOWNLOAD_URL = "http://heanet.dl.sourceforge.net/sourceforge/jboss/jboss-4.0.5.GA.zip";
 	
 	private static final String JBOSS4_CONTAINER = "jboss4x";
@@ -401,8 +401,8 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 
 		
 		if(usePlatform4){
-			String groupId = "com.idega.webapp.custom";
-			final String artifactId = "lucid";
+			String groupId = "com.idega.webapp.product";
+			final String artifactId = "idega-webapp-base";
 			try{
 				RepositoryLogin login = RepositoryLogin.getInstanceWithoutAuthentication("http://repository.idega.com/maven2");
 				RepositoryBrowserM2 browser = new RepositoryBrowserM2(login);
