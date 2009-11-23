@@ -409,8 +409,9 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 				
 	
 				//String artifactId = "felixclub";
-				
 				String url = browser.getArtifactUrlForMostRecent(groupId, artifactId);
+				
+				//String url = browser.getArtifactUrlForMostRecent(groupId, artifactId);
 				return url;
 				//return "http://repository.idega.com/maven2/com/idega/webapp/custom/felixclub/"+currentVersion+"/"+currentVersionAndName;
 			
