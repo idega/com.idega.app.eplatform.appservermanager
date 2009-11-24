@@ -262,10 +262,8 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		container.setOutput(logfile);
 		
 		Map<String, String> systemprops = new HashMap<String, String>();
-		systemprops.put("Xmx","256M");
 		systemprops.put("java.awt.headless","true");
 		systemprops.put("file.encoding","UTF-8");
-		
 
 		getDataDir().mkdirs();
 		String dataDir = getDataDir().getPath();
@@ -286,7 +284,7 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		
 		//systemprops.put("idegaweb.db.properties",this.getApplicationInstallDir().getAbsolutePath()+SEPERATOR+"plugins"+SEPERATOR+"com.idega.app.eplatform_4.0.0"+SEPERATOR+databasePropertiesFileName);
 		//systemprops.put("user.dir",appserverBaseDir);
-		
+
 		container.setSystemProperties(systemprops);
 	}
 	
@@ -607,7 +605,7 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 			configuration.setProperty("cargo.ajp.port",Integer.toString(getServerAjpPort()));
 			
 			storeContainerSettings(installDir,newCreatedHomeDirString);
-
+			
 			//deploy if neccesery
 			log("Deploying ePlatform Webapp");
 		}
@@ -615,6 +613,8 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 		managerContainer = (InstalledLocalContainer) new DefaultContainerFactory().createContainer(managerContainerId, ContainerType.INSTALLED, configuration);
 		//managerContainer = new Tomcat5xInstalledLocalContainer(conf);
 		
+		String JVMArgs = "-Xmx384M -XX:MaxPermSize=128M -XX:+HeapDumpOnOutOfMemoryError -XX:MinHeapFreeRatio=20 -XX:MaxHeapFreeRatio=40";
+		configuration.setProperty(GeneralPropertySet.JVMARGS, JVMArgs);
 		
 		//managerContainer.setHome(homeDir);
 		String containerHomeDir = getContainerHomePath();
