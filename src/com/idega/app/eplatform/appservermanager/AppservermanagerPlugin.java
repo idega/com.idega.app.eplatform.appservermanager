@@ -2,6 +2,7 @@ package com.idega.app.eplatform.appservermanager;
 
 import java.io.File;
 import java.net.URI;
+import java.net.URL;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
@@ -39,7 +40,6 @@ public class AppservermanagerPlugin implements BundleActivator{// extends Plugin
 		
 		//Temp hardcoding:
 		//sBaseDirUrl = "file:/idega/eplatform-app";
-		
 		//Specially replace the space:
 		sBaseDirUrl = sBaseDirUrl.replaceAll(" ","%20");
 		URI baseDirUri = new URI(sBaseDirUrl);
@@ -48,11 +48,19 @@ public class AppservermanagerPlugin implements BundleActivator{// extends Plugin
 		if(bundleLocation.startsWith("initial@reference:")){
 			bundleLocation = bundleLocation.substring("initial@reference:".length());
 		}
+		if(bundleLocation.startsWith("reference:")){
+			bundleLocation = bundleLocation.substring("reference:".length());
+		}
+
 		URI bundleLocationURI = null;
 		
+		 
 		if(bundleLocation.startsWith("file:")){
-			bundleLocation = bundleLocation.substring("file:".length());
-			bundleLocation=sBaseDirUrl+bundleLocation;
+			String testBundleLocation = bundleLocation.substring("file:".length());
+			File bundleLocationFile = new File(testBundleLocation);
+			if(!bundleLocationFile.exists()){
+				bundleLocation=sBaseDirUrl+testBundleLocation;
+			}
 		}
 		try{
 			bundleLocation = bundleLocation.replaceAll(" ","%20");

@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Appservermanager Plug-in
 Bundle-SymbolicName: com.idega.app.eplatform.appservermanager
-Bundle-Version: 1.0.0
+Bundle-Version: 4.1.3
 Bundle-ClassPath: appservermanager.jar,
  lib/xercesImpl-2.4.0.jar,
  lib/ant-1.6.4.jar,
@@ -461,3 +461,4 @@ Export-Package: com.idega.app.eplatform.appservermanager;
    org.apache.xerces.dom3,
    org.w3c.dom,
    org.w3c.dom.events"
+Bundle-RequiredExecutionEnvironment: J2SE-1.5

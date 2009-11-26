@@ -484,12 +484,21 @@ public class IdegawebAppserverInstance implements WebappInstance,Runnable {
 	}
 
 	public File getExtraLibsDir(){
-		File baseBundlePath = this.bundleDir;
-		if(baseBundlePath==null){
-			String pluginFolder="com.idega.app.eplatform.appservermanager_1.0.0";
-			baseBundlePath = new File(getApplicationInstallDir().getPath()+File.separator+"plugins"+File.separator+pluginFolder);
+		File baseBundleDir = this.bundleDir;
+		if(baseBundleDir==null){
+			File pluginsDir = new File(getApplicationInstallDir().getPath()+File.separator+"plugins");
+			File[] plugins = pluginsDir.listFiles();
+			for (int i = 0; i < plugins.length; i++) {
+				File plugin = plugins[i];
+				String pluginName = plugin.getName();
+				if(pluginName.startsWith("com.idega.app.eplatform.appservermanager_")){
+					baseBundleDir=plugin;
+				}
+			}
+			//String pluginFolder="com.idega.app.eplatform.appservermanager_4.1.3";
+			//baseBundleDir = new File(getApplicationInstallDir().getPath()+File.separator+"plugins"+File.separator+pluginFolder);
 		}
-		File libDir = new File(baseBundlePath,EXTRA_LIB_DIR_NAME);
+		File libDir = new File(baseBundleDir,EXTRA_LIB_DIR_NAME);
 		if(libDir.exists()){
 				return libDir;
 		}
