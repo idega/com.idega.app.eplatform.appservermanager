@@ -2,7 +2,6 @@ package com.idega.app.eplatform.appservermanager;
 
 import java.io.File;
 import java.net.URI;
-import java.net.URL;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
@@ -57,8 +56,8 @@ public class AppservermanagerPlugin implements BundleActivator{// extends Plugin
 		 
 		if(bundleLocation.startsWith("file:")){
 			String testBundleLocation = bundleLocation.substring("file:".length());
-			File bundleLocationFile = new File(testBundleLocation);
-			if(!bundleLocationFile.exists()){
+			//if the bundle URI starts with "plugins" it is a relative path so we need to add the eclipse platform prefix
+			if(testBundleLocation.startsWith("plugins")){
 				bundleLocation=sBaseDirUrl+testBundleLocation;
 			}
 		}
@@ -69,6 +68,9 @@ public class AppservermanagerPlugin implements BundleActivator{// extends Plugin
 		catch(Exception e){
 			e.printStackTrace();
 		}
+		//if(true){
+		//	throw new RuntimeException("bundleLocationURI="+bundleLocationURI);
+		//}
 		File bundleLocationFolder = new File(bundleLocationURI);
 		if(bundleLocationFolder.exists()){
 			System.out.println("BundleFolder: "+bundleLocationFolder.getPath());
